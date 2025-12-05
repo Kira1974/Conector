@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  spi-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: spiuser
+      POSTGRES_PASSWORD: spipass
+      POSTGRES_DB: spi
+    ports:
+      - "5432:5432"
+    volumes:
+      - spi-data:/var/lib/postgresql/data
+  spi-service:
+    build: .
+    command: sh -c "npm install && npm run build && node dist/main.js"
+    depends_on:
+      - spi-db
+    environment:
+      DATABASE_URL: postgres://spiuser:spipass@spi-db:5432/spi
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_SECRET_ID: ${AWS_SECRET_ID:-}
+      OAUTH_BASE: ${OAUTH_BASE}
+      KEYMGMT_BASE: ${KEYMGMT_BASE}
+      QR_BASE: ${QR_BASE}
+      PAYMENT_BASE: ${PAYMENT_BASE}
+      MTLS_CLIENT_CERT: ${MTLS_CLIENT_CERT}
+      MTLS_CLIENT_KEY: ${MTLS_CLIENT_KEY}
+      DATADOG_API_KEY: ${DATADOG_API_KEY}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+    ports:
+      - "8080:8080"
+volumes:
+  spi-data:

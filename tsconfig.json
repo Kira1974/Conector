@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "target": "ES2020",
+    "sourceMap": true,
+    "outDir": "dist",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "esModuleInterop": true,
+    "baseUrl": "./",
+    "paths": {
+      "@config/*": ["src/configuration/*"],
+      "@core/*": ["src/core/*"],
+      "@infrastructure/*": ["src/infrastructure/*"],
+      "@infrastructure/provider/*": ["src/infrastructure/provider/*"],
+      "@infrastructure/entrypoint/*": ["src/infrastructure/entrypoint/*"]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
