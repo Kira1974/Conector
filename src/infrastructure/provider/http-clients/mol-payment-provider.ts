@@ -6,9 +6,14 @@ import { AxiosResponse } from 'axios';
 
 import { ExternalServiceException, PaymentProcessingException } from '@core/exception/custom.exceptions';
 import { IMolPaymentProvider } from '@core/provider';
-import { ResilienceConfigService, formatTimestampWithoutZ } from '@core/util';
+import { formatTimestampWithoutZ } from '@core/util';
 import { AdditionalDataKey, KeyResolutionResponse } from '@core/model';
+import { TransferMessage } from '@core/constant';
+import { ExternalServicesConfigService } from '@config/external-services-config.service';
+import { LoggingConfigService } from '@config/logging-config.service';
+import { MolPayerConfigService } from '@config/mol-payer-config.service';
 
+import { ResilienceConfigService } from '../resilience-config.service';
 import { TransferRequestDto, TransferResponseDto, TransferResponseCode } from '../../entrypoint/dto';
 
 import {
@@ -38,10 +43,13 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     private readonly http: HttpClientService,
     private readonly auth: AuthService,
     private readonly loggerService: ThLoggerService,
-    private readonly resilienceConfig: ResilienceConfigService
+    private readonly resilienceConfig: ResilienceConfigService,
+    private readonly externalServicesConfig: ExternalServicesConfigService,
+    private readonly loggingConfig: LoggingConfigService,
+    private readonly molPayerConfig: MolPayerConfigService
   ) {
     this.logger = this.loggerService.getLogger(MolPaymentProvider.name, ThLoggerComponent.INFRASTRUCTURE);
-    this.ENABLE_HTTP_HEADERS_LOG = process.env.ENABLE_HTTP_HEADERS_LOG === 'true';
+    this.ENABLE_HTTP_HEADERS_LOG = this.loggingConfig.isHttpHeadersLogEnabled();
   }
 
   @ThTraceEvent({
@@ -50,7 +58,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
   })
   async createPayment(request: TransferRequestDto, keyResolution: KeyResolutionResponse): Promise<TransferResponseDto> {
     try {
-      const baseUrl = process.env.PAYMENT_BASE;
+      const baseUrl = this.externalServicesConfig.getMolBaseUrl();
       const url = `${baseUrl}/v1/payment`;
 
       const dto: MolPaymentRequestDto = this.toPaymentRequestDto(request, keyResolution);
@@ -70,27 +78,37 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         requestBody: JSON.stringify(dto, null, 2),
         eventId: request.transactionId,
         correlationId: request.transactionId,
-        internalId: request.transactionId
+        transactionId: request.transactionId
       };
 
       if (this.ENABLE_HTTP_HEADERS_LOG) {
         requestLog.headers = headers;
       }
 
-      this.logger.log('MOL Request JSON', requestLog);
+      this.logger.log('MOL Request', requestLog);
 
       const response = await this.http.instance.post<CredibancoApiResponse>(url, dto, {
         headers,
         timeout
       });
 
-      this.logger.log('MOL Response JSON', {
+      const responseLog: Record<string, unknown> = {
         status: response.status,
         responseBody: JSON.stringify(response.data, null, 2),
         eventId: request.transactionId,
         correlationId: request.transactionId,
-        internalId: request.transactionId
-      });
+        transactionId: request.transactionId
+      };
+
+      if (response.data?.end_to_end_id) {
+        responseLog.externalTransactionId = response.data.end_to_end_id;
+      }
+
+      if (response.data?.execution_id) {
+        responseLog.executionId = response.data.execution_id;
+      }
+
+      this.logger.log('MOL Response', responseLog);
 
       return this.handlePaymentResponse(response, request, keyResolution);
     } catch (error: unknown) {
@@ -114,7 +132,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     try {
       this.validateQueryRequest(request);
 
-      const baseUrl = process.env.PAYMENT_BASE;
+      const baseUrl = this.externalServicesConfig.getMolBaseUrl();
       const url = `${baseUrl}/v1/payments`;
 
       const queryParams = this.buildQueryParams(request);
@@ -299,13 +317,21 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     }
 
     if (response.data?.status === 'ERROR') {
-      const errorDescription =
-        response.data?.error?.description ||
-        response.data?.errors?.map((e) => e.description).join(', ') ||
-        'Unknown API error';
+      let errorDescription = '';
+      const errorCode = response.data?.error?.code || response.data?.errors?.[0]?.code;
+
+      if (response.data?.errors && response.data.errors.length > 0) {
+        errorDescription = response.data.errors.map((e) => `${e.code}: ${e.description}`).join(', ');
+      } else if (response.data?.error) {
+        const description = response.data.error.description || response.data.error.message || 'Unknown API error';
+        errorDescription = errorCode ? `${errorCode}: ${description}` : description;
+      } else {
+        errorDescription = 'Unknown API error';
+      }
 
       this.logger.error('MOL API returned error status', {
         internalId: request.transactionId,
+        errorCode,
         error: errorDescription
       });
 
@@ -336,7 +362,9 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     return {
       transactionId: request.transactionId,
       responseCode: isSuccess ? TransferResponseCode.APPROVED : TransferResponseCode.ERROR,
-      message: isSuccess ? 'Payment initiated successfully' : 'Payment error',
+      message: isSuccess ? TransferMessage.PAYMENT_INITIATED : TransferMessage.PAYMENT_PROCESSING_ERROR,
+      networkMessage: undefined,
+      networkCode: undefined,
       externalTransactionId: response.data.end_to_end_id,
       additionalData: {
         [AdditionalDataKey.END_TO_END]: response.data.end_to_end_id,
@@ -408,30 +436,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
   }
 
   private getPayerConfigurationFromEnv(): MolPayerConfiguration {
-    const identificationType = process.env.MOL_PAYER_IDENTIFICATION_TYPE;
-    const identificationValue = process.env.MOL_PAYER_IDENTIFICATION_VALUE;
-    const name = process.env.MOL_PAYER_NAME;
-    const paymentMethodType = process.env.MOL_PAYER_PAYMENT_METHOD_TYPE;
-    const paymentMethodValue = process.env.MOL_PAYER_PAYMENT_METHOD_VALUE;
-    const paymentMethodCurrency = process.env.MOL_PAYER_PAYMENT_METHOD_CURRENCY;
-    if (
-      !identificationType ||
-      !identificationValue ||
-      !name ||
-      !paymentMethodType ||
-      !paymentMethodValue ||
-      !paymentMethodCurrency
-    ) {
-      throw new Error('MOL payer configuration environment variables are not fully configured');
-    }
-    return {
-      identificationType,
-      identificationValue,
-      name,
-      paymentMethodType,
-      paymentMethodValue,
-      paymentMethodCurrency
-    };
+    return this.molPayerConfig.getPayerConfiguration();
   }
 
   private mapKeyTypeToMol(keyType: string): string {

@@ -1,0 +1,29 @@
+{
+  "externalServices": {
+    "oauth": {
+      "baseUrl": "http://localhost:4545"
+    },
+    "dife": {
+      "baseUrl": "http://localhost:4546"
+    },
+    "mol": {
+      "baseUrl": "http://localhost:4547"
+    }
+  },
+  "mountebank": {
+    "enabled": false,
+    "oauthPort": 4545,
+    "difePort": 4546,
+    "molPort": 4547
+  },
+  "molPayer": {
+    "name": "Test Payer"
+  },
+  "logging": {
+    "enableHttpHeadersLog": false,
+    "environment": "test",
+    "minLevel": "DEBUG",
+    "pretty": false,
+    "colors": false
+  }
+}

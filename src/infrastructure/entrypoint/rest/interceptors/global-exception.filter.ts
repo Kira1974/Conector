@@ -1,5 +1,7 @@
+import * as crypto from 'crypto';
+
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
+import { ThLogger, ThLoggerService, ThLoggerComponent, ThRuntimeContext, ThEventTypeBuilder } from 'themis';
 
 interface HttpRequest {
   method: string;
@@ -129,11 +131,29 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private logError(exception: unknown, errorDetails: ErrorDetails, request: HttpRequest, correlationId?: string): void {
+    let eventId = correlationId || this.generateEventId();
+
+    try {
+      const currentEventInfo = ThRuntimeContext.getEventInfo();
+      if (!currentEventInfo?.eventId) {
+        ThRuntimeContext.startTraceEvent(
+          new ThEventTypeBuilder().setDomain('error').setAction('handle').setResult('error')
+        );
+        const newEventInfo = ThRuntimeContext.getEventInfo();
+        if (newEventInfo?.eventId) {
+          eventId = newEventInfo.eventId;
+        }
+      } else {
+        eventId = currentEventInfo.eventId;
+      }
+    } catch {
+      // Fallback to generated eventId if runtime context is unavailable
+    }
+
     const logContext = {
-      correlationId,
-
+      eventId,
+      correlationId: correlationId || eventId,
       method: request.method,
-
       url: request.url,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       userAgent: request.headers['user-agent'],
@@ -160,6 +180,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           ? exception.constructor.name
           : 'Unknown'
     });
+  }
+
+  private generateEventId(): string {
+    const randomBytes = crypto.randomBytes(4).toString('hex');
+    return `${Date.now()}-${randomBytes}`;
   }
 
   private buildValidationErrorMessage(baseMessage: string, errors: ValidationErrorNode[]): string {

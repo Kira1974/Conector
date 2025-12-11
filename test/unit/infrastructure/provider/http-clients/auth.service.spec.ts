@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ThLoggerService } from 'themis';
 
 import { AuthService, HttpClientService } from '../../../../../src/infrastructure/provider/http-clients';
-import { ResilienceConfigService } from '../../../../../src/core/util';
+import { ResilienceConfigService } from '../../../../../src/infrastructure/provider/resilience-config.service';
+import { ExternalServicesConfigService } from '../../../../../src/configuration/external-services-config.service';
+import { LoggingConfigService } from '../../../../../src/configuration/logging-config.service';
+import { SecretsConfigService } from '../../../../../src/configuration/secrets-config.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -26,7 +29,19 @@ describe('AuthService', () => {
   };
 
   const mockResilienceConfig = {
-    getOAuthTimeout: jest.fn().mockReturnValue(15000)
+    getOAuthTimeout: jest.fn().mockReturnValue(15000),
+    getOAuthCacheTtl: jest.fn().mockReturnValue(50 * 60) // 50 minutes in seconds
+  };
+
+  const mockExternalServicesConfig = {
+    getOAuthBaseUrl: jest.fn().mockReturnValue('https://auth1-test.opencco.com/oauth2')
+  };
+
+  const mockSecretsConfig = {
+    getClientIdCredibanco: jest.fn().mockReturnValue('test-client-id'),
+    getClientSecretCredibanco: jest.fn().mockReturnValue('test-client-secret'),
+    getMtlsClientCertCredibanco: jest.fn().mockReturnValue('test-cert'),
+    getMtlsClientKeyCredibanco: jest.fn().mockReturnValue('test-key')
   };
 
   const testEnv = {
@@ -54,6 +69,20 @@ describe('AuthService', () => {
         {
           provide: ResilienceConfigService,
           useValue: mockResilienceConfig
+        },
+        {
+          provide: ExternalServicesConfigService,
+          useValue: mockExternalServicesConfig
+        },
+        {
+          provide: LoggingConfigService,
+          useValue: {
+            isHttpHeadersLogEnabled: jest.fn().mockReturnValue(false)
+          }
+        },
+        {
+          provide: SecretsConfigService,
+          useValue: mockSecretsConfig
         }
       ]
     }).compile();
@@ -175,15 +204,14 @@ describe('AuthService', () => {
       expect(token2).toBe(token3);
     });
 
-    it('should cache token with correct TTL (expires_in - 60 seconds)', async () => {
+    it('should cache token with fixed TTL of 50 minutes', async () => {
       const mockToken = 'ttl-token-12345';
-      const expiresIn = 3600;
 
       mockHttpInstance.post.mockResolvedValue({
         data: {
           access_token: mockToken,
           token_type: 'Bearer',
-          expires_in: expiresIn
+          expires_in: 3600
         }
       });
 
@@ -194,13 +222,13 @@ describe('AuthService', () => {
 
       const ttl = service['cache'].getTtl('auth_token');
       const now = Date.now();
-      const expectedTtl = (expiresIn - 60) * 1000;
+      const expectedTtl = 50 * 60 * 1000;
 
       expect(ttl).toBeGreaterThan(now + expectedTtl - 5000);
       expect(ttl).toBeLessThan(now + expectedTtl + 5000);
     });
 
-    it('should use minimum TTL of 30 seconds when expires_in is too short', async () => {
+    it('should use fixed TTL of 50 minutes regardless of expires_in value', async () => {
       const mockToken = 'short-ttl-token';
 
       mockHttpInstance.post.mockResolvedValue({
@@ -215,10 +243,10 @@ describe('AuthService', () => {
 
       const ttl = service['cache'].getTtl('auth_token');
       const now = Date.now();
-      const expectedMinTtl = 30 * 1000;
+      const expectedTtl = 50 * 60 * 1000;
 
-      expect(ttl).toBeGreaterThan(now + expectedMinTtl - 5000);
-      expect(ttl).toBeLessThan(now + expectedMinTtl + 5000);
+      expect(ttl).toBeGreaterThan(now + expectedTtl - 5000);
+      expect(ttl).toBeLessThan(now + expectedTtl + 5000);
     });
   });
 

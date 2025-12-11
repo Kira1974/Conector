@@ -10,9 +10,13 @@ import {
   MolPaymentStatus,
   MolPaymentStatusMapper
 } from '@infrastructure/provider/http-clients/dto';
-import { ResilienceConfigService } from '@core/util';
 import { TransferRequestDto, TransferResponseCode } from '@infrastructure/entrypoint/dto';
 import { KeyResolutionResponse } from '@core/model';
+import { ExternalServicesConfigService } from '@config/external-services-config.service';
+import { LoggingConfigService } from '@config/logging-config.service';
+import { MolPayerConfigService } from '@config/mol-payer-config.service';
+
+import { ResilienceConfigService } from '../../../../../src/infrastructure/provider/resilience-config.service';
 
 describe('MolPaymentProvider', () => {
   let provider: MolPaymentProvider;
@@ -48,6 +52,26 @@ describe('MolPaymentProvider', () => {
     getMolTimeout: jest.fn().mockReturnValue(30000)
   };
 
+  const mockExternalServicesConfig = {
+    getMolBaseUrl: jest.fn().mockReturnValue('https://mock-mol-api.example.com'),
+    getMolQueryTimeout: jest.fn().mockReturnValue(10000)
+  };
+
+  const mockLoggingConfig = {
+    isHttpHeadersLogEnabled: jest.fn().mockReturnValue(false)
+  };
+
+  const mockMolPayerConfig = {
+    getPayerConfiguration: jest.fn().mockReturnValue({
+      identificationType: 'CITIZENSHIP_ID',
+      identificationValue: '1234567890',
+      name: 'Test Payer',
+      paymentMethodType: 'SAVINGS_ACCOUNT',
+      paymentMethodValue: '000000000',
+      paymentMethodCurrency: 'COP'
+    })
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +91,18 @@ describe('MolPaymentProvider', () => {
         {
           provide: ResilienceConfigService,
           useValue: mockResilienceConfig
+        },
+        {
+          provide: ExternalServicesConfigService,
+          useValue: mockExternalServicesConfig
+        },
+        {
+          provide: LoggingConfigService,
+          useValue: mockLoggingConfig
+        },
+        {
+          provide: MolPayerConfigService,
+          useValue: mockMolPayerConfig
         }
       ]
     }).compile();
@@ -133,13 +169,14 @@ describe('MolPaymentProvider', () => {
 
     it('should create payment successfully with mock URL', async () => {
       // Arrange
-      process.env.PAYMENT_BASE = 'https://mock-mol-api.example.com';
-      process.env.MOL_PAYER_IDENTIFICATION_TYPE = 'CITIZENSHIP_ID';
-      process.env.MOL_PAYER_IDENTIFICATION_VALUE = '1234567890';
-      process.env.MOL_PAYER_NAME = 'Payer Name';
-      process.env.MOL_PAYER_PAYMENT_METHOD_TYPE = 'SAVINGS_ACCOUNT';
-      process.env.MOL_PAYER_PAYMENT_METHOD_VALUE = '000000000';
-      process.env.MOL_PAYER_PAYMENT_METHOD_CURRENCY = 'COP';
+      mockMolPayerConfig.getPayerConfiguration.mockReturnValue({
+        identificationType: 'CITIZENSHIP_ID',
+        identificationValue: '1234567890',
+        name: 'Payer Name',
+        paymentMethodType: 'SAVINGS_ACCOUNT',
+        paymentMethodValue: '000000000',
+        paymentMethodCurrency: 'COP'
+      });
 
       const mockResponse = {
         status: 200,
@@ -184,14 +221,14 @@ describe('MolPaymentProvider', () => {
         key_resolution_id: 'test-transaction-id',
         payer: {
           identification: {
-            type: process.env.MOL_PAYER_IDENTIFICATION_TYPE,
-            value: process.env.MOL_PAYER_IDENTIFICATION_VALUE
+            type: 'CITIZENSHIP_ID',
+            value: '1234567890'
           },
-          name: process.env.MOL_PAYER_NAME,
+          name: 'Payer Name',
           payment_method: {
             currency: 'COP',
-            type: process.env.MOL_PAYER_PAYMENT_METHOD_TYPE,
-            value: process.env.MOL_PAYER_PAYMENT_METHOD_VALUE
+            type: 'SAVINGS_ACCOUNT',
+            value: '000000000'
           }
         },
         qr_code_id: '',
@@ -230,13 +267,15 @@ describe('MolPaymentProvider', () => {
 
     it('should use authentication for real API URLs', async () => {
       // Arrange
-      process.env.PAYMENT_BASE = 'https://api.mol.com';
-      process.env.MOL_PAYER_IDENTIFICATION_TYPE = 'CITIZENSHIP_ID';
-      process.env.MOL_PAYER_IDENTIFICATION_VALUE = '1234567890';
-      process.env.MOL_PAYER_NAME = 'Payer Name';
-      process.env.MOL_PAYER_PAYMENT_METHOD_TYPE = 'SAVINGS_ACCOUNT';
-      process.env.MOL_PAYER_PAYMENT_METHOD_VALUE = '000000000';
-      process.env.MOL_PAYER_PAYMENT_METHOD_CURRENCY = 'COP';
+      mockExternalServicesConfig.getMolBaseUrl.mockReturnValue('https://api.mol.com');
+      mockMolPayerConfig.getPayerConfiguration.mockReturnValue({
+        identificationType: 'CITIZENSHIP_ID',
+        identificationValue: '1234567890',
+        name: 'Payer Name',
+        paymentMethodType: 'SAVINGS_ACCOUNT',
+        paymentMethodValue: '000000000',
+        paymentMethodCurrency: 'COP'
+      });
 
       const mockResponse = {
         status: 200,
@@ -327,7 +366,7 @@ describe('MolPaymentProvider', () => {
 
   describe('queryPaymentStatus', () => {
     beforeEach(() => {
-      process.env.PAYMENT_BASE = 'https://mock-mol-api.example.com';
+      mockExternalServicesConfig.getMolBaseUrl.mockReturnValue('https://mock-mol-api.example.com');
     });
 
     it('should query payment status by internal_id successfully', async () => {

@@ -3,17 +3,14 @@ import { Logger, RequestMethod } from '@nestjs/common';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { AppConfigService } from './app-config.service';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-  const port = process.env.PORT || 3000;
+  const appConfig = app.get(AppConfigService);
+  const port = appConfig.getPort();
 
   app.use(helmet());
-
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
-    credentials: true
-  });
 
   app.setGlobalPrefix('api/v1', {
     exclude: [

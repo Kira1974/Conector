@@ -1,0 +1,26 @@
+{
+  "externalServices": {
+    "oauth": {
+      "baseUrl": "https://oauth-preprod.example.com"
+    },
+    "dife": {
+      "baseUrl": "https://dife-preprod.example.com"
+    },
+    "mol": {
+      "baseUrl": "https://mol-preprod.example.com"
+    }
+  },
+  "mountebank": {
+    "enabled": false
+  },
+  "molPayer": {
+    "name": "PreProd Payer"
+  },
+  "logging": {
+    "enableHttpHeadersLog": false,
+    "environment": "preprod",
+    "minLevel": "INFO",
+    "pretty": false,
+    "colors": false
+  }
+}

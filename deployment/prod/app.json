@@ -1,0 +1,26 @@
+{
+  "externalServices": {
+    "oauth": {
+      "baseUrl": "https://oauth-prod.example.com"
+    },
+    "dife": {
+      "baseUrl": "https://dife-prod.example.com"
+    },
+    "mol": {
+      "baseUrl": "https://mol-prod.example.com"
+    }
+  },
+  "mountebank": {
+    "enabled": false
+  },
+  "molPayer": {
+    "name": "Production Payer"
+  },
+  "logging": {
+    "enableHttpHeadersLog": false,
+    "environment": "production",
+    "minLevel": "WARN",
+    "pretty": false,
+    "colors": false
+  }
+}

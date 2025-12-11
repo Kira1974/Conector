@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { ThLoggerService } from 'themis';
 
 import { HttpClientService } from '@infrastructure/provider/http-clients/http-client.service';
-import { ResilienceConfigService } from '@core/util';
+import { SecretsConfigService } from '@config/secrets-config.service';
+
+import { ResilienceConfigService } from '../../../../../src/infrastructure/provider/resilience-config.service';
 
 describe('HttpClientService', () => {
   let service: HttpClientService;
@@ -20,6 +22,11 @@ describe('HttpClientService', () => {
     getHttpTimeout: jest.fn().mockReturnValue(30000),
     getAuthTimeout: jest.fn().mockReturnValue(15000),
     getRetryAttempts: jest.fn().mockReturnValue(3)
+  };
+
+  const mockSecretsConfig = {
+    getMtlsClientCertCredibanco: jest.fn().mockReturnValue('test-cert'),
+    getMtlsClientKeyCredibanco: jest.fn().mockReturnValue('test-key')
   };
 
   beforeEach(async () => {
@@ -41,6 +48,10 @@ describe('HttpClientService', () => {
         {
           provide: ResilienceConfigService,
           useValue: mockResilienceConfig
+        },
+        {
+          provide: SecretsConfigService,
+          useValue: mockSecretsConfig
         }
       ]
     }).compile();
@@ -75,13 +86,14 @@ describe('HttpClientService', () => {
     });
 
     it('should configure mTLS when both cert and key are provided', () => {
-      configService.get.mockReturnValueOnce('-----CLIENT_CERT-----').mockReturnValueOnce('-----CLIENT_KEY-----');
+      mockSecretsConfig.getMtlsClientCertCredibanco.mockReturnValue('-----CLIENT_CERT-----');
+      mockSecretsConfig.getMtlsClientKeyCredibanco.mockReturnValue('-----CLIENT_KEY-----');
 
       const instance = service.instance;
 
       expect(instance).toBeDefined();
-      expect(configService.get).toHaveBeenCalledWith('MTLS_CLIENT_CERT_CREDIBANCO');
-      expect(configService.get).toHaveBeenCalledWith('MTLS_CLIENT_KEY_CREDIBANCO');
+      expect(mockSecretsConfig.getMtlsClientCertCredibanco).toHaveBeenCalled();
+      expect(mockSecretsConfig.getMtlsClientKeyCredibanco).toHaveBeenCalled();
     });
 
     it('should handle only cert without key', () => {

@@ -4,6 +4,7 @@ import { ThLoggerService } from 'themis';
 import { TransferController } from '@infrastructure/entrypoint/rest/transfer.controller';
 import { TransferUseCase } from '@core/usecase';
 import { TransferRequestDto, TransferResponseCode, TransferResponseDto } from '@infrastructure/entrypoint/dto';
+import { TransferMessage } from '@core/constant';
 
 describe('TransferController', () => {
   let controller: TransferController;
@@ -80,7 +81,7 @@ describe('TransferController', () => {
       const mockResponseDto: TransferResponseDto = {
         transactionId: 'TXN-123456789',
         responseCode: TransferResponseCode.APPROVED,
-        message: 'Transfer approved',
+        message: TransferMessage.PAYMENT_APPROVED,
         externalTransactionId: 'EXT-123',
         additionalData: {
           END_TO_END: 'E2E-123',
@@ -109,7 +110,7 @@ describe('TransferController', () => {
       const mockErrorResponse: TransferResponseDto = {
         transactionId: 'TXN-ERROR',
         responseCode: TransferResponseCode.REJECTED_BY_PROVIDER,
-        message: 'The transaction was rejected by provider: Transfer failed'
+        message: TransferMessage.PAYMENT_REJECTED
       };
 
       transferUseCase.executeTransfer.mockResolvedValue(mockErrorResponse);
@@ -125,7 +126,7 @@ describe('TransferController', () => {
       const mockResponseDto: TransferResponseDto = {
         transactionId: 'TXN-123',
         responseCode: TransferResponseCode.APPROVED,
-        message: 'Transfer approved'
+        message: TransferMessage.PAYMENT_APPROVED
       };
       transferUseCase.executeTransfer.mockResolvedValue(mockResponseDto);
 

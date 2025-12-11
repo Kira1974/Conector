@@ -4,8 +4,11 @@ import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
 import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
 import { KeyResolutionException, ExternalServiceException } from '@core/exception/custom.exceptions';
 import { KeyTypeDife } from '@core/constant';
-import { ResilienceConfigService, formatTimestampWithoutZ } from '@core/util';
+import { formatTimestampWithoutZ } from '@core/util';
+import { ExternalServicesConfigService } from '@config/external-services-config.service';
+import { LoggingConfigService } from '@config/logging-config.service';
 
+import { ResilienceConfigService } from '../resilience-config.service';
 import { KeyResolutionMapper } from '../mapper';
 
 import { ResolveKeyRequestDto, ResolveKeyResponseDto } from './dto';
@@ -25,10 +28,12 @@ export class DifeProvider {
     private readonly http: HttpClientService,
     private readonly auth: AuthService,
     private readonly loggerService: ThLoggerService,
-    private readonly resilienceConfig: ResilienceConfigService
+    private readonly resilienceConfig: ResilienceConfigService,
+    private readonly externalServicesConfig: ExternalServicesConfigService,
+    private readonly loggingConfig: LoggingConfigService
   ) {
     this.logger = this.loggerService.getLogger(DifeProvider.name, ThLoggerComponent.INFRASTRUCTURE);
-    this.ENABLE_HTTP_HEADERS_LOG = process.env.ENABLE_HTTP_HEADERS_LOG === 'true';
+    this.ENABLE_HTTP_HEADERS_LOG = this.loggingConfig.isHttpHeadersLogEnabled();
   }
 
   /**
@@ -40,18 +45,9 @@ export class DifeProvider {
     try {
       const c110Timestamp = formatTimestampWithoutZ();
 
-      const baseUrl = process.env.KEYMGMT_BASE;
+      const baseUrl = this.externalServicesConfig.getDifeBaseUrl();
 
       const url = `${baseUrl}/v1/key/resolve`;
-
-      this.logger.log('Resolving DIFE key', {
-        correlationId: request.correlationId,
-        keyType: request.keyType || 'O',
-        keyValue: request.key,
-        baseUrl,
-        url,
-        c110Timestamp
-      });
 
       const c120Timestamp = formatTimestampWithoutZ();
 
@@ -82,11 +78,15 @@ export class DifeProvider {
         correlationId: request.correlationId
       };
 
+      if (request.transactionId) {
+        requestLog.transactionId = request.transactionId;
+      }
+
       if (this.ENABLE_HTTP_HEADERS_LOG) {
         requestLog.headers = headers;
       }
 
-      this.logger.log('DIFE Request JSON', requestLog);
+      this.logger.log('DIFE Request', requestLog);
 
       const timeout = this.resilienceConfig.getDifeTimeout();
       const response = await this.http.instance.post<ResolveKeyResponseDto>(url, requestBody, {
@@ -95,28 +95,39 @@ export class DifeProvider {
       });
 
       // Log response JSON
-      this.logger.log('DIFE Response JSON', {
+      const responseLog: Record<string, unknown> = {
         status: response.status,
         responseBody: JSON.stringify(response.data, null, 2),
         eventId: request.correlationId,
         correlationId: request.correlationId
-      });
+      };
+
+      if (request.transactionId) {
+        responseLog.transactionId = request.transactionId;
+      }
+
+      if (response.data?.execution_id) {
+        responseLog.externalTransactionId = response.data.execution_id;
+      }
+
+      this.logger.log('DIFE Response', responseLog);
+
+      // Convert provider DTO response to domain model
+      const responseDto: ResolveKeyResponseDto = response.data;
+
+      const domainResult = KeyResolutionMapper.toDomain(responseDto);
 
       // Handle new error structure from DIFE API
-      if (response.data?.status === 'ERROR' && response.data?.errors?.length > 0) {
-        const errorInfo = response.data.errors[0];
+      if (domainResult.status === 'ERROR' && domainResult.errors.length > 0) {
+        const errorInfo = response.data.errors?.[0];
         this.logger.error('DIFE API returned error response', {
           correlationId: request.correlationId,
-          errorCode: errorInfo.code,
-          errorDescription: errorInfo.description,
+          errorCode: errorInfo?.code,
+          errorDescription: errorInfo?.description,
           executionId: response.data.execution_id
         });
 
-        throw new ExternalServiceException(
-          url,
-          `DIFE API error: ${errorInfo.description} (${errorInfo.code})`,
-          errorInfo.code
-        );
+        return domainResult;
       }
 
       this.logger.log('DIFE key resolved successfully', {
@@ -124,11 +135,6 @@ export class DifeProvider {
         responseStatus: response.status,
         executionId: response.data.execution_id
       });
-
-      // Convert provider DTO response to domain model
-      const responseDto: ResolveKeyResponseDto = response.data;
-
-      const domainResult = KeyResolutionMapper.toDomain(responseDto);
 
       return domainResult;
     } catch (error: unknown) {

@@ -5,8 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
 
-import { ResilienceConfigService } from '@core/util';
 import { TimeoutException, ExternalServiceException } from '@core/exception/custom.exceptions';
+import { SecretsConfigService } from '@config/secrets-config.service';
+
+import { ResilienceConfigService } from '../resilience-config.service';
 
 @Injectable()
 export class HttpClientService {
@@ -16,7 +18,8 @@ export class HttpClientService {
   constructor(
     private configService: ConfigService,
     private loggerService: ThLoggerService,
-    private resilienceConfig: ResilienceConfigService
+    private resilienceConfig: ResilienceConfigService,
+    private secretsConfig: SecretsConfigService
   ) {
     this.logger = this.loggerService.getLogger(HttpClientService.name, ThLoggerComponent.INFRASTRUCTURE);
 
@@ -38,8 +41,8 @@ export class HttpClientService {
   private createMtlsOptions(): https.AgentOptions {
     const opts: https.AgentOptions = {};
     try {
-      const clientCert = this.configService.get<string>('MTLS_CLIENT_CERT_CREDIBANCO');
-      const clientKey = this.configService.get<string>('MTLS_CLIENT_KEY_CREDIBANCO');
+      const clientCert = this.secretsConfig.getMtlsClientCertCredibanco();
+      const clientKey = this.secretsConfig.getMtlsClientKeyCredibanco();
 
       if (clientCert && clientKey) {
         opts.cert = clientCert;
@@ -58,22 +61,11 @@ export class HttpClientService {
    */
   private setupInterceptors(): void {
     this.client.interceptors.request.use((config) => {
-      this.logger.debug('HTTP request initiated', {
-        method: config.method?.toUpperCase(),
-        url: config.url,
-        timeout: config.timeout,
-        correlationId: config.headers?.['x-correlation-id'] as string | undefined
-      });
       return config;
     });
 
     this.client.interceptors.response.use(
       (response) => {
-        this.logger.debug('HTTP response received', {
-          status: response.status,
-          statusText: response.statusText,
-          url: response.config.url
-        });
         return response;
       },
       async (error) => {

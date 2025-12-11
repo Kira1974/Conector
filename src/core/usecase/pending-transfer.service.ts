@@ -5,6 +5,10 @@ import { TransferFinalState } from '@core/constant';
 import { AdditionalDataKey, ConfirmationResponse } from '@core/model';
 import { IMolPaymentProvider } from '@core/provider';
 import { MolPaymentQueryRequestDto, MolPaymentQueryResponseDto } from '@infrastructure/provider/http-clients/dto';
+import { TransferConfigService } from '@config/transfer-config.service';
+import { ExternalServicesConfigService } from '@config/external-services-config.service';
+
+type ConfirmationSource = 'webhook' | 'polling';
 
 interface PendingTransfer {
   transactionId: string;
@@ -15,6 +19,8 @@ interface PendingTransfer {
   pollingTimeoutId?: NodeJS.Timeout;
   createdAt: number;
   isResolved: boolean;
+  startedAt: number;
+  pollingAttempts?: number;
 }
 
 @Injectable()
@@ -31,26 +37,20 @@ export class PendingTransferService implements OnModuleDestroy {
 
   constructor(
     private readonly loggerService: ThLoggerService,
-    private readonly molPaymentProvider: IMolPaymentProvider
+    private readonly molPaymentProvider: IMolPaymentProvider,
+    private readonly transferConfig: TransferConfigService,
+    private readonly externalServicesConfig: ExternalServicesConfigService
   ) {
     this.logger = this.loggerService.getLogger(PendingTransferService.name, ThLoggerComponent.SERVICE);
-    this.TIMEOUT_MS = this.getRequiredNumberEnv('TRANSFER_TIMEOUT_MS');
-    this.POLLING_START_DELAY_MS = this.getRequiredNumberEnv('WEBHOOK_POLLING_START_DELAY_MS');
-    this.POLLING_INTERVAL_MS = this.getRequiredNumberEnv('POLLING_INTERVAL_MS');
-    this.MOL_QUERY_TIMEOUT_MS = this.getRequiredNumberEnv('MOL_QUERY_TIMEOUT_MS');
-    this.ENABLE_MOL_POLLING = process.env.ENABLE_MOL_POLLING === 'true';
+    this.TIMEOUT_MS = this.transferConfig.getTransferTimeout();
+    this.POLLING_START_DELAY_MS = this.transferConfig.getWebhookPollingStartDelay();
+    this.POLLING_INTERVAL_MS = this.transferConfig.getPollingInterval();
+    this.MOL_QUERY_TIMEOUT_MS = this.externalServicesConfig.getMolQueryTimeout();
+    this.ENABLE_MOL_POLLING = this.transferConfig.isPollingEnabled();
 
     if (process.env.NODE_ENV !== 'test') {
       this.startCleanupInterval();
     }
-  }
-
-  private getRequiredNumberEnv(variableName: string): number {
-    const value = process.env[variableName];
-    if (!value) {
-      throw new Error(`${variableName} is not configured`);
-    }
-    return parseInt(value, 10);
   }
 
   @ThTraceEvent({
@@ -76,7 +76,15 @@ export class PendingTransferService implements OnModuleDestroy {
     return this.registerPendingTransfer(transactionId, endToEndId, startedAt);
   }
 
-  resolveConfirmation(endToEndId: string, response: ConfirmationResponse): boolean {
+  @ThTraceEvent({
+    eventType: new ThEventTypeBuilder().setDomain('transfer').setAction('resolve-confirmation'),
+    tags: ['transfer', 'confirmation', 'resolve']
+  })
+  resolveConfirmation(
+    endToEndId: string,
+    response: ConfirmationResponse,
+    source: ConfirmationSource = 'webhook'
+  ): boolean {
     const pending = this.pendingTransfers.get(endToEndId);
 
     if (!pending) {
@@ -85,7 +93,7 @@ export class PendingTransferService implements OnModuleDestroy {
     }
 
     const finalState = response.responseCode;
-    this.logConfirmationResolution(pending, endToEndId, finalState);
+    this.logConfirmationResolution(pending, endToEndId, finalState, source);
     this.completePendingConfirmation(pending, endToEndId, response);
 
     return true;
@@ -224,7 +232,9 @@ export class PendingTransferService implements OnModuleDestroy {
         timeoutId,
         pollingTimeoutId,
         createdAt: baseTime,
-        isResolved: false
+        startedAt: baseTime,
+        isResolved: false,
+        pollingAttempts: 0
       });
     });
   }
@@ -240,16 +250,37 @@ export class PendingTransferService implements OnModuleDestroy {
   private logConfirmationResolution(
     pending: PendingTransfer,
     endToEndId: string,
-    finalState: TransferFinalState
+    finalState: TransferFinalState,
+    source: ConfirmationSource
   ): void {
-    const duration = Date.now() - pending.createdAt;
-    this.logger.log('Resolving pending transfer confirmation', {
+    const resolvedAt = Date.now();
+    const totalDurationMs = resolvedAt - pending.startedAt;
+    const totalDurationSeconds = Math.round((totalDurationMs / 1000) * 100) / 100;
+    const registrationDelayMs = pending.createdAt - pending.startedAt;
+    const waitingDurationMs = resolvedAt - pending.createdAt;
+
+    const logData: Record<string, unknown> = {
+      eventId: endToEndId,
+      correlationId: pending.transactionId,
       transactionId: pending.transactionId,
       endToEndId,
       finalState,
-      durationMs: duration,
+      resolutionSource: source,
+      totalDurationMs,
+      totalDurationSeconds,
+      registrationDelayMs,
+      waitingDurationMs,
+      startedAt: new Date(pending.startedAt).toISOString(),
+      registeredAt: new Date(pending.createdAt).toISOString(),
+      resolvedAt: new Date(resolvedAt).toISOString(),
       remainingPending: this.pendingTransfers.size - 1
-    });
+    };
+
+    if (source === 'polling' && pending.pollingAttempts !== undefined) {
+      logData.pollingAttempts = pending.pollingAttempts;
+    }
+
+    this.logger.log('Transfer final state resolved', logData);
   }
 
   private completePendingConfirmation(
@@ -293,8 +324,8 @@ export class PendingTransferService implements OnModuleDestroy {
       this.logger.log('MOL polling disabled by feature flag', {
         transactionId,
         endToEndId,
-        featureFlag: 'ENABLE_MOL_POLLING',
-        value: process.env.ENABLE_MOL_POLLING
+        featureFlag: 'transfer.enablePolling',
+        value: this.ENABLE_MOL_POLLING
       });
       return;
     }
@@ -303,6 +334,10 @@ export class PendingTransferService implements OnModuleDestroy {
 
     const poll = async (): Promise<void> => {
       attempts++;
+      const pending = this.pendingTransfers.get(endToEndId);
+      if (pending) {
+        pending.pollingAttempts = attempts;
+      }
 
       try {
         const pending = this.pendingTransfers.get(endToEndId);
@@ -361,13 +396,6 @@ export class PendingTransferService implements OnModuleDestroy {
               timeUntilTimeout
             });
           } else {
-            this.logger.log('MOL polling returned successful response', {
-              transactionId,
-              endToEndId,
-              attempts,
-              status: response.items[0]?.status
-            });
-
             const finalState = this.mapMolStatusToTransferFinalState(response.items[0]?.status);
             const confirmationResponse: ConfirmationResponse = {
               transactionId: endToEndId,
@@ -379,7 +407,16 @@ export class PendingTransferService implements OnModuleDestroy {
                 [AdditionalDataKey.EXECUTION_ID]: transactionId
               }
             };
-            this.completePendingConfirmation(pending, endToEndId, confirmationResponse);
+
+            this.logger.log('MOL polling returned successful response - resolving confirmation', {
+              transactionId,
+              endToEndId,
+              attempts,
+              status: response.items[0]?.status,
+              finalState
+            });
+
+            this.resolveConfirmation(endToEndId, confirmationResponse, 'polling');
             return;
           }
         }

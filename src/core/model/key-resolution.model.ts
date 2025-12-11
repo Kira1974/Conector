@@ -6,6 +6,7 @@ export interface KeyResolutionRequest {
   correlationId: string;
   key: string;
   keyType?: string;
+  transactionId?: string;
 }
 
 /**

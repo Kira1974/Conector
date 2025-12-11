@@ -1,0 +1,26 @@
+{
+  "externalServices": {
+    "oauth": {
+      "baseUrl": "https://auth-test.opencco.com/oauth2"
+    },
+    "dife": {
+      "baseUrl": "https://keymgmt-test.opencco.com"
+    },
+    "mol": {
+      "baseUrl": "https://payment-test.opencco.com"
+    }
+  },
+  "mountebank": {
+    "enabled": false
+  },
+  "molPayer": {
+    "name": "Test Payer"
+  },
+  "logging": {
+    "enableHttpHeadersLog": false,
+    "environment": "development",
+    "minLevel": "DEBUG",
+    "pretty": false,
+    "colors": false
+  }
+}

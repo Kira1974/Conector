@@ -4,9 +4,12 @@ import { ThLoggerService } from 'themis';
 
 import { TransferRequestDto, TransferResponseCode } from '../../src/infrastructure/entrypoint/dto';
 import { KeyResolutionResponse } from '../../src/core/model';
-import { ResilienceConfigService } from '../../src/core/util';
+import { ResilienceConfigService } from '../../src/infrastructure/provider/resilience-config.service';
 import { MolPaymentProvider } from '../../src/infrastructure/provider/http-clients/mol-payment-provider';
 import { AuthService, HttpClientService } from '../../src/infrastructure/provider/http-clients';
+import { ExternalServicesConfigService } from '../../src/configuration/external-services-config.service';
+import { LoggingConfigService } from '../../src/configuration/logging-config.service';
+import { MolPayerConfigService } from '../../src/configuration/mol-payer-config.service';
 
 describe('MOL API Integration Tests', () => {
   let provider: MolPaymentProvider;
@@ -39,6 +42,26 @@ describe('MOL API Integration Tests', () => {
     getMolTimeout: jest.fn().mockReturnValue(30000)
   };
 
+  const mockExternalServicesConfig = {
+    getMolBaseUrl: jest.fn().mockReturnValue('https://mock-mol-api.example.com'),
+    getMolQueryTimeout: jest.fn().mockReturnValue(10000)
+  };
+
+  const mockLoggingConfig = {
+    isHttpHeadersLogEnabled: jest.fn().mockReturnValue(false)
+  };
+
+  const mockMolPayerConfig = {
+    getPayerConfiguration: jest.fn().mockReturnValue({
+      identificationType: 'CITIZENSHIP_ID',
+      identificationValue: '1234567890',
+      name: 'Payer Name',
+      paymentMethodType: 'SAVINGS_ACCOUNT',
+      paymentMethodValue: '000000000',
+      paymentMethodCurrency: 'COP'
+    })
+  };
+
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +81,18 @@ describe('MOL API Integration Tests', () => {
         {
           provide: ResilienceConfigService,
           useValue: mockResilienceConfig
+        },
+        {
+          provide: ExternalServicesConfigService,
+          useValue: mockExternalServicesConfig
+        },
+        {
+          provide: LoggingConfigService,
+          useValue: mockLoggingConfig
+        },
+        {
+          provide: MolPayerConfigService,
+          useValue: mockMolPayerConfig
         }
       ]
     }).compile();

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
+import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
 import { TransferFinalState } from '@core/constant';
 import { AdditionalDataKey, ConfirmationResponse } from '@core/model';
@@ -18,19 +18,28 @@ export class ConfirmationUseCase {
     this.logger = this.loggerService.getLogger(ConfirmationUseCase.name, ThLoggerComponent.APPLICATION);
   }
 
+  @ThTraceEvent({
+    eventType: new ThEventTypeBuilder().setDomain('transfer').setAction('confirm'),
+    tags: ['transfer', 'confirmation']
+  })
   processConfirmation(notification: TransferConfirmationDto): ConfirmationResponse {
     const endToEndId = notification.payload.payload.end_to_end_id;
     const executionId = notification.payload.payload.execution_id;
     const settlementStatus = notification.payload.payload.status;
+    const traceId = notification.payload.properties.trace_id || endToEndId;
 
-    this.logger.log('Processing transfer confirmation', {
+    this.logger.log('CONFIRM Request', {
+      eventId: endToEndId,
+      correlationId: endToEndId,
+      transactionId: endToEndId,
       notificationId: notification.id,
       source: notification.source,
-      endToEndId,
+      externalTransactionId: endToEndId,
       executionId,
       settlementStatus,
       eventName: notification.payload.event_name,
-      traceId: notification.payload.properties.trace_id
+      traceId,
+      requestBody: JSON.stringify(notification, null, 2)
     });
 
     const finalState = this.mapSettlementStatusToFinalState(settlementStatus);
@@ -39,21 +48,27 @@ export class ConfirmationUseCase {
 
     if (!finalState) {
       this.logger.warn('Unknown settlement status received', {
+        eventId: endToEndId,
+        correlationId: endToEndId,
+        transactionId: endToEndId,
         endToEndId,
         settlementStatus,
         notificationId: notification.id
       });
 
       confirmationResponse = this.buildErrorResponse(notification);
-      this.pendingTransferService.resolveConfirmation(endToEndId, confirmationResponse);
+      this.pendingTransferService.resolveConfirmation(endToEndId, confirmationResponse, 'webhook');
       return confirmationResponse;
     }
 
     confirmationResponse = this.buildSuccessResponse(endToEndId, executionId, finalState);
-    const resolved = this.pendingTransferService.resolveConfirmation(endToEndId, confirmationResponse);
+    const resolved = this.pendingTransferService.resolveConfirmation(endToEndId, confirmationResponse, 'webhook');
 
     if (!resolved) {
       this.logger.warn('Confirmation for unknown or expired transfer', {
+        eventId: endToEndId,
+        correlationId: endToEndId,
+        transactionId: endToEndId,
         endToEndId,
         finalState,
         settlementStatus,
@@ -64,6 +79,9 @@ export class ConfirmationUseCase {
     }
 
     this.logger.log('Transfer confirmation processed successfully', {
+      eventId: endToEndId,
+      correlationId: endToEndId,
+      transactionId: endToEndId,
       endToEndId,
       executionId,
       finalState,

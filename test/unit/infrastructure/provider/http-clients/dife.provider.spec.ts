@@ -4,7 +4,9 @@ import { ThLoggerService } from 'themis';
 import { DifeProvider } from '../../../../../src/infrastructure/provider/http-clients/dife.provider';
 import { AuthService, HttpClientService } from '../../../../../src/infrastructure/provider/http-clients';
 import { KeyResolutionRequest } from '../../../../../src/core/model';
-import { ResilienceConfigService } from '../../../../../src/core/util';
+import { ResilienceConfigService } from '../../../../../src/infrastructure/provider/resilience-config.service';
+import { ExternalServicesConfigService } from '../../../../../src/configuration/external-services-config.service';
+import { LoggingConfigService } from '../../../../../src/configuration/logging-config.service';
 
 describe('DifeProvider', () => {
   let provider: DifeProvider;
@@ -39,6 +41,14 @@ describe('DifeProvider', () => {
     getDifeTimeout: jest.fn().mockReturnValue(30000)
   };
 
+  const mockExternalServicesConfig = {
+    getDifeBaseUrl: jest.fn().mockReturnValue('http://localhost:4546')
+  };
+
+  const mockLoggingConfig = {
+    isHttpHeadersLogEnabled: jest.fn().mockReturnValue(false)
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +68,14 @@ describe('DifeProvider', () => {
         {
           provide: ResilienceConfigService,
           useValue: mockResilienceConfig
+        },
+        {
+          provide: ExternalServicesConfigService,
+          useValue: mockExternalServicesConfig
+        },
+        {
+          provide: LoggingConfigService,
+          useValue: mockLoggingConfig
         }
       ]
     }).compile();
@@ -81,7 +99,7 @@ describe('DifeProvider', () => {
     };
 
     it('should resolve key successfully with mock URL', async () => {
-      process.env.KEYMGMT_BASE = 'https://mock-dife-api.example.com';
+      mockExternalServicesConfig.getDifeBaseUrl.mockReturnValue('https://mock-dife-api.example.com');
 
       const mockResponse = {
         status: 200,
@@ -218,7 +236,11 @@ describe('DifeProvider', () => {
 
       mockHttpClientService.instance.post.mockResolvedValue(errorResponse);
 
-      await expect(provider.resolveKey(mockRequest)).rejects.toThrow('DIFE API error: Invalid request (DIFE-0001)');
+      const result = await provider.resolveKey(mockRequest);
+
+      expect(result.status).toBe('ERROR');
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('DIFE-0001');
       expect(mockLogger.error).toHaveBeenCalledWith(
         'DIFE API returned error response',
         expect.objectContaining({

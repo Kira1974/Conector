@@ -3,11 +3,15 @@ import { ThLoggerService } from 'themis';
 import { PendingTransferService } from '@core/usecase/pending-transfer.service';
 import { TransferFinalState } from '@core/constant';
 import { ConfirmationResponse } from '@core/model';
+import { TransferConfigService } from '@config/transfer-config.service';
+import { ExternalServicesConfigService } from '@config/external-services-config.service';
 
 describe('PendingTransferService', () => {
   let service: PendingTransferService;
   let mockLoggerService: any;
   let mockMolProvider: any;
+  let mockTransferConfig: jest.Mocked<TransferConfigService>;
+  let mockExternalServicesConfig: jest.Mocked<ExternalServicesConfigService>;
 
   const mockLogger = {
     log: jest.fn(),
@@ -24,7 +28,23 @@ describe('PendingTransferService', () => {
       queryPaymentStatus: jest.fn()
     };
 
-    service = new PendingTransferService(mockLoggerService as ThLoggerService, mockMolProvider);
+    mockTransferConfig = {
+      getTransferTimeout: jest.fn().mockReturnValue(50000),
+      getWebhookPollingStartDelay: jest.fn().mockReturnValue(30000),
+      getPollingInterval: jest.fn().mockReturnValue(5000),
+      isPollingEnabled: jest.fn().mockReturnValue(true)
+    } as unknown as jest.Mocked<TransferConfigService>;
+
+    mockExternalServicesConfig = {
+      getMolQueryTimeout: jest.fn().mockReturnValue(10000)
+    } as unknown as jest.Mocked<ExternalServicesConfigService>;
+
+    service = new PendingTransferService(
+      mockLoggerService as ThLoggerService,
+      mockMolProvider,
+      mockTransferConfig,
+      mockExternalServicesConfig
+    );
   });
 
   afterEach(() => {
@@ -59,7 +79,7 @@ describe('PendingTransferService', () => {
 
       expect(result).toEqual(mockResponse);
       expect(mockLogger.log).toHaveBeenCalledWith('Registering pending transfer', expect.any(Object));
-      expect(mockLogger.log).toHaveBeenCalledWith('Resolving pending transfer confirmation', expect.any(Object));
+      expect(mockLogger.log).toHaveBeenCalledWith('Transfer final state resolved', expect.any(Object));
     });
 
     it('should resolve with DECLINED when confirmation is received', async () => {
@@ -280,7 +300,12 @@ describe('PendingTransferService', () => {
 
     it('should not log cleanup when no stale transfers are found', () => {
       // Create a service instance that will run cleanup
-      const testService = new PendingTransferService(mockLoggerService as ThLoggerService, mockMolProvider);
+      const testService = new PendingTransferService(
+        mockLoggerService as ThLoggerService,
+        mockMolProvider,
+        mockTransferConfig,
+        mockExternalServicesConfig
+      );
 
       // Manually trigger cleanup with no pending transfers
       (testService as any).performCleanup();
@@ -327,7 +352,12 @@ describe('PendingTransferService', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
 
-      const prodService = new PendingTransferService(mockLoggerService as ThLoggerService, mockMolProvider);
+      const prodService = new PendingTransferService(
+        mockLoggerService as ThLoggerService,
+        mockMolProvider,
+        mockTransferConfig,
+        mockExternalServicesConfig
+      );
 
       // Check that cleanup interval was started
       expect((prodService as any).cleanupIntervalId).toBeDefined();
@@ -422,36 +452,44 @@ describe('PendingTransferService', () => {
   });
 
   describe('timeout configuration', () => {
-    it('should use custom timeout from environment variable', () => {
-      const originalEnv = process.env.TRANSFER_TIMEOUT_MS;
-      process.env.TRANSFER_TIMEOUT_MS = '30000';
+    it('should use custom timeout from configuration', () => {
+      const customTransferConfig = {
+        getTransferTimeout: jest.fn().mockReturnValue(30000),
+        getWebhookPollingStartDelay: jest.fn().mockReturnValue(30000),
+        getPollingInterval: jest.fn().mockReturnValue(5000),
+        isPollingEnabled: jest.fn().mockReturnValue(true)
+      } as unknown as jest.Mocked<TransferConfigService>;
 
-      const customService = new PendingTransferService(mockLoggerService as ThLoggerService, mockMolProvider);
+      const customService = new PendingTransferService(
+        mockLoggerService as ThLoggerService,
+        mockMolProvider,
+        customTransferConfig,
+        mockExternalServicesConfig
+      );
 
       expect((customService as any).TIMEOUT_MS).toBe(30000);
 
       customService.clearAll();
-
-      // Restore original env
-      if (originalEnv) {
-        process.env.TRANSFER_TIMEOUT_MS = originalEnv;
-      } else {
-        delete process.env.TRANSFER_TIMEOUT_MS;
-      }
     });
 
-    it('should throw error when environment variable is not set', () => {
-      const originalEnv = process.env.TRANSFER_TIMEOUT_MS;
-      delete process.env.TRANSFER_TIMEOUT_MS;
+    it('should throw error when configuration is not set', () => {
+      const invalidTransferConfig = {
+        getTransferTimeout: jest.fn().mockImplementation(() => {
+          throw new Error('Required configuration is not set');
+        }),
+        getWebhookPollingStartDelay: jest.fn().mockReturnValue(30000),
+        getPollingInterval: jest.fn().mockReturnValue(5000),
+        isPollingEnabled: jest.fn().mockReturnValue(true)
+      } as unknown as jest.Mocked<TransferConfigService>;
 
       expect(() => {
-        new PendingTransferService(mockLoggerService as ThLoggerService, mockMolProvider);
-      }).toThrow('TRANSFER_TIMEOUT_MS is not configured');
-
-      // Restore original env
-      if (originalEnv) {
-        process.env.TRANSFER_TIMEOUT_MS = originalEnv;
-      }
+        new PendingTransferService(
+          mockLoggerService as ThLoggerService,
+          mockMolProvider,
+          invalidTransferConfig,
+          mockExternalServicesConfig
+        );
+      }).toThrow();
     });
   });
 });

@@ -4,7 +4,9 @@ import { ThLoggerService } from 'themis';
 import { DifeProvider } from '../../src/infrastructure/provider/http-clients/dife.provider';
 import { AuthService, HttpClientService } from '../../src/infrastructure/provider/http-clients';
 import { KeyResolutionRequest } from '../../src/core/model';
-import { ResilienceConfigService } from '../../src/core/util';
+import { ResilienceConfigService } from '../../src/infrastructure/provider/resilience-config.service';
+import { ExternalServicesConfigService } from '../../src/configuration/external-services-config.service';
+import { LoggingConfigService } from '../../src/configuration/logging-config.service';
 
 describe('DIFE API Integration Tests', () => {
   let provider: DifeProvider;
@@ -36,6 +38,14 @@ describe('DIFE API Integration Tests', () => {
     getDifeTimeout: jest.fn().mockReturnValue(30000)
   };
 
+  const mockExternalServicesConfig = {
+    getDifeBaseUrl: jest.fn().mockReturnValue('http://localhost:4546')
+  };
+
+  const mockLoggingConfig = {
+    isHttpHeadersLogEnabled: jest.fn().mockReturnValue(false)
+  };
+
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,6 +65,14 @@ describe('DIFE API Integration Tests', () => {
         {
           provide: ResilienceConfigService,
           useValue: mockResilienceConfig
+        },
+        {
+          provide: ExternalServicesConfigService,
+          useValue: mockExternalServicesConfig
+        },
+        {
+          provide: LoggingConfigService,
+          useValue: mockLoggingConfig
         }
       ]
     }).compile();
@@ -198,7 +216,12 @@ describe('DIFE API Integration Tests', () => {
 
       mockHttpClientService.instance.post.mockResolvedValue(mockErrorResponse);
 
-      await expect(provider.resolveKey(mockRequest)).rejects.toThrow('DIFE API error: Invalid request (DIFE-0001)');
+      const result = await provider.resolveKey(mockRequest);
+
+      expect(result.status).toBe('ERROR');
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('DIFE-0001');
+      expect(result.errors[0]).toContain('Invalid request');
 
       expect(_httpClientService.instance.post).toHaveBeenCalledWith(
         expect.stringContaining('/v1/key/resolve'),

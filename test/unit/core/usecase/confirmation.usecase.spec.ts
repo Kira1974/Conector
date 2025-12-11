@@ -87,10 +87,11 @@ describe('ConfirmationUseCase', () => {
           transactionId: '20251120135790864CRB001763694229136',
           responseCode: TransferFinalState.APPROVED,
           message: 'Payment approved'
-        })
+        }),
+        'webhook'
       );
 
-      expect(mockLogger.log).toHaveBeenCalledWith('Processing transfer confirmation', expect.any(Object));
+      expect(mockLogger.log).toHaveBeenCalledWith('CONFIRM Request', expect.any(Object));
       expect(mockLogger.log).toHaveBeenCalledWith('Transfer confirmation processed successfully', expect.any(Object));
     });
 
@@ -117,7 +118,8 @@ describe('ConfirmationUseCase', () => {
           transactionId: '20251120135790864CRB001763694229136',
           responseCode: TransferFinalState.APPROVED,
           message: 'Payment approved'
-        })
+        }),
+        'webhook'
       );
     });
 
@@ -144,7 +146,8 @@ describe('ConfirmationUseCase', () => {
           transactionId: '20251120135790864CRB001763694229136',
           responseCode: TransferFinalState.DECLINED,
           message: 'Payment declined'
-        })
+        }),
+        'webhook'
       );
     });
 
@@ -184,7 +187,8 @@ describe('ConfirmationUseCase', () => {
           transactionId: 'E2E-123',
           responseCode: 'ERROR',
           message: 'ERR001: Invalid account, ERR002: Insufficient funds'
-        })
+        }),
+        'webhook'
       );
       expect(mockLogger.warn).toHaveBeenCalledWith('Unknown settlement status received', expect.any(Object));
     });
@@ -211,7 +215,8 @@ describe('ConfirmationUseCase', () => {
           transactionId: 'E2E-789',
           responseCode: 'ERROR',
           message: 'Unknown settlement status'
-        })
+        }),
+        'webhook'
       );
     });
 
@@ -254,7 +259,8 @@ describe('ConfirmationUseCase', () => {
           transactionId: '20251120135790864CRB001763694229136',
           responseCode: TransferFinalState.APPROVED,
           message: 'Payment approved'
-        })
+        }),
+        'webhook'
       );
     });
 
@@ -265,13 +271,14 @@ describe('ConfirmationUseCase', () => {
       useCase.processConfirmation(notification);
 
       expect(mockLogger.log).toHaveBeenCalledWith(
-        'Processing transfer confirmation',
+        'CONFIRM Request',
         expect.objectContaining({
           notificationId: 'NOTIF-001',
           source: 'credibanco',
-          endToEndId: '20251120135790864CRB001763694229136',
+          correlationId: '20251120135790864CRB001763694229136',
+          eventId: '20251120135790864CRB001763694229136',
           executionId: '202511200BANKCRB00029a85dc48b',
-          settlementStatus: 'SUCCESS'
+          eventName: 'settlement.result'
         })
       );
 

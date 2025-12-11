@@ -1,0 +1,18 @@
+{
+  "mountebank": {
+    "enabled": true,
+    "oauthPort": 4545,
+    "difePort": 4546,
+    "molPort": 4547
+  },
+  "molPayer": {
+    "name": "Test Payer"
+  },
+  "logging": {
+    "enableHttpHeadersLog": true,
+    "environment": "local",
+    "minLevel": "DEBUG",
+    "pretty": true,
+    "colors": true
+  }
+}

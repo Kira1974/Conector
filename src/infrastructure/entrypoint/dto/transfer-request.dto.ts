@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, ValidateNested, IsOptional, Min, IsIn } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, ValidateNested, IsOptional, Min, IsIn, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export type CurrencyCode = 'COP' | 'USD' | 'EUR';
@@ -91,8 +91,7 @@ export class TransferRequestDto {
   @IsNotEmpty()
   transactionParties: TransactionPartiesDto;
 
-  @ValidateNested()
-  @Type(() => AdditionalDataDto)
+  @IsObject()
   @IsOptional()
   additionalData?: AdditionalDataDto;
 }

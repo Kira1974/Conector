@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 
-import { ResilienceConfigService } from '@core/util';
 import { IDifeProvider, IMolPaymentProvider } from '@core/provider';
 
+import { ResilienceConfigService } from './resilience-config.service';
 import { HttpClientService } from './http-clients/http-client.service';
 import { AuthService } from './http-clients/auth.service';
 import { DifeProvider, MolPaymentProvider } from './http-clients';

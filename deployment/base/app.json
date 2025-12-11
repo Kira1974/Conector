@@ -1,0 +1,35 @@
+{
+  "app": {
+    "port": 3000
+  },
+  "externalServices": {
+    "oauth": {
+      "timeoutMs": 15000,
+      "cacheTtlSeconds": 3000
+    },
+    "dife": {
+      "timeoutMs": 30000
+    },
+    "mol": {
+      "timeoutMs": 30000,
+      "queryTimeoutMs": 10000
+    }
+  },
+  "transfer": {
+    "timeoutMs": 50000,
+    "webhookPollingStartDelayMs": 30000,
+    "pollingIntervalMs": 5000,
+    "enablePolling": true
+  },
+  "molPayer": {
+    "identificationType": "CITIZENSHIP_ID",
+    "identificationValue": "1234567890",
+    "paymentMethodType": "SAVINGS_ACCOUNT",
+    "paymentMethodValue": "000000000",
+    "paymentMethodCurrency": "COP"
+  },
+  "logging": {
+    "service": "charon",
+    "version": "1.0.0"
+  }
+}
