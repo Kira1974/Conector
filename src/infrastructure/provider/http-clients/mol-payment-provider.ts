@@ -14,6 +14,7 @@ import { LoggingConfigService } from '@config/logging-config.service';
 import { MolPayerConfigService } from '@config/mol-payer-config.service';
 
 import { ResilienceConfigService } from '../resilience-config.service';
+import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network-log.util';
 import { TransferRequestDto, TransferResponseDto, TransferResponseCode } from '../../entrypoint/dto';
 
 import {
@@ -69,46 +70,76 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         baseUrl
       });
 
-      const headers = await this.buildHeaders(baseUrl);
+      let headers = await this.buildHeaders(baseUrl);
       const timeout = this.resilienceConfig.getMolTimeout();
 
-      const requestLog: Record<string, unknown> = {
+      const molEventId = request.transactionId;
+      const molTraceId = request.transactionId;
+      const molRequestCorrelationId = dto.internal_id || request.transactionId;
+
+      const requestLog = buildNetworkRequestLog({
         url,
         method: 'POST',
         requestBody: JSON.stringify(dto, null, 2),
-        eventId: request.transactionId,
-        correlationId: request.transactionId,
-        transactionId: request.transactionId
-      };
+        eventId: molEventId,
+        traceId: molTraceId,
+        correlationId: molRequestCorrelationId,
+        transactionId: request.transactionId,
+        headers,
+        enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
+      });
 
-      if (this.ENABLE_HTTP_HEADERS_LOG) {
-        requestLog.headers = headers;
-      }
+      requestLog.internalId = dto.internal_id;
 
-      this.logger.log('MOL Request', requestLog);
+      this.logger.log('NETWORK_REQUEST MOL', requestLog);
 
-      const response = await this.http.instance.post<CredibancoApiResponse>(url, dto, {
+      let response = await this.http.instance.post<CredibancoApiResponse>(url, dto, {
         headers,
         timeout
       });
 
-      const responseLog: Record<string, unknown> = {
-        status: response.status,
-        responseBody: JSON.stringify(response.data, null, 2),
-        eventId: request.transactionId,
-        correlationId: request.transactionId,
-        transactionId: request.transactionId
-      };
+      const endToEndId = response.data?.end_to_end_id;
+      const molResponseCorrelationId = endToEndId || dto.internal_id || request.transactionId;
 
-      if (response.data?.end_to_end_id) {
-        responseLog.externalTransactionId = response.data.end_to_end_id;
+      this.logMolPaymentResponse(response, {
+        eventId: molEventId,
+        traceId: molTraceId,
+        correlationId: molResponseCorrelationId,
+        transactionId: request.transactionId,
+        internalId: dto.internal_id,
+        endToEndId
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        this.logger.warn('MOL request failed with authentication error, clearing token cache and retrying', {
+          eventId: molEventId,
+          traceId: molTraceId,
+          correlationId: molRequestCorrelationId,
+          transactionId: request.transactionId,
+          status: response.status
+        });
+
+        this.auth.clearCache();
+        headers = await this.buildHeaders(baseUrl);
+
+        response = await this.http.instance.post<CredibancoApiResponse>(url, dto, {
+          headers,
+          timeout
+        });
+
+        const retryEndToEndId = response.data?.end_to_end_id;
+        const retryMolResponseCorrelationId = retryEndToEndId || dto.internal_id || request.transactionId;
+
+        this.logMolPaymentResponse(response, {
+          eventId: molEventId,
+          traceId: molTraceId,
+          correlationId: retryMolResponseCorrelationId,
+          transactionId: request.transactionId,
+          internalId: dto.internal_id,
+          endToEndId: retryEndToEndId,
+          retry: true
+        });
       }
-
-      if (response.data?.execution_id) {
-        responseLog.executionId = response.data.execution_id;
-      }
-
-      this.logger.log('MOL Response', responseLog);
 
       return this.handlePaymentResponse(response, request, keyResolution);
     } catch (error: unknown) {
@@ -145,36 +176,75 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         timeout: timeout || this.resilienceConfig.getMolTimeout()
       });
 
-      const headers = await this.buildHeaders(baseUrl);
+      let headers = await this.buildHeaders(baseUrl);
       const requestTimeout = timeout || this.resilienceConfig.getMolTimeout();
 
-      const requestLog: Record<string, unknown> = {
+      const queryCorrelationId = request.end_to_end_id || request.internal_id || 'query-payment-status';
+      const queryEventId = request.internal_id || request.end_to_end_id || 'query-payment-status';
+      const queryTraceId = queryEventId;
+
+      const requestLog = buildNetworkRequestLog({
         url: fullUrl,
         method: 'GET',
-        eventId: request.internal_id || request.end_to_end_id || 'query-payment-status',
-        correlationId: request.internal_id || request.end_to_end_id || 'query-payment-status'
-      };
+        eventId: queryEventId,
+        traceId: queryTraceId,
+        correlationId: queryCorrelationId,
+        headers,
+        enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
+      });
 
-      if (this.ENABLE_HTTP_HEADERS_LOG) {
-        requestLog.headers = headers;
+      if (request.internal_id) {
+        requestLog.internalId = request.internal_id;
       }
 
-      this.logger.log('MOL Query Request JSON', requestLog);
+      if (request.end_to_end_id) {
+        requestLog.endToEndId = request.end_to_end_id;
+      }
 
-      const response = await this.http.instance.get<MolPaymentQueryResponseDto>(url, {
+      this.logger.log('NETWORK_REQUEST MOL_QUERY', requestLog);
+
+      let response = await this.http.instance.get<MolPaymentQueryResponseDto>(url, {
         headers,
         params: queryParams,
         timeout: requestTimeout
       });
 
-      this.logger.log('MOL Query Response JSON', {
-        url: fullUrl,
-        method: 'GET',
-        status: response.status,
-        responseBody: JSON.stringify(response.data, null, 2),
-        eventId: request.internal_id || request.end_to_end_id || 'query-payment-status',
-        correlationId: request.internal_id || request.end_to_end_id || 'query-payment-status'
+      this.logMolQueryResponse(response, {
+        eventId: queryEventId,
+        traceId: queryTraceId,
+        correlationId: queryCorrelationId,
+        internalId: request.internal_id,
+        endToEndId: request.end_to_end_id,
+        url: fullUrl
       });
+
+      if (response.status === 401 || response.status === 403) {
+        this.logger.warn('MOL query request failed with authentication error, clearing token cache and retrying', {
+          eventId: queryEventId,
+          traceId: queryTraceId,
+          correlationId: queryCorrelationId,
+          status: response.status
+        });
+
+        this.auth.clearCache();
+        headers = await this.buildHeaders(baseUrl);
+
+        response = await this.http.instance.get<MolPaymentQueryResponseDto>(url, {
+          headers,
+          params: queryParams,
+          timeout: requestTimeout
+        });
+
+        this.logMolQueryResponse(response, {
+          eventId: queryEventId,
+          traceId: queryTraceId,
+          correlationId: queryCorrelationId,
+          internalId: request.internal_id,
+          endToEndId: request.end_to_end_id,
+          url: fullUrl,
+          retry: true
+        });
+      }
 
       return this.handleQueryResponse(response);
     } catch (error: unknown) {
@@ -473,5 +543,78 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       DBMI: 'INCLUSIVE_AMOUNT_DEPOSIT'
     };
     return paymentMethodMap[difeType] || difeType;
+  }
+
+  /**
+   * Log MOL payment response immediately after receiving it
+   */
+  private logMolPaymentResponse(
+    response: AxiosResponse<CredibancoApiResponse>,
+    options: {
+      eventId: string;
+      traceId: string;
+      correlationId: string;
+      transactionId: string;
+      internalId: string;
+      endToEndId?: string;
+      retry?: boolean;
+    }
+  ): void {
+    const responseLog = buildNetworkResponseLog(response, {
+      eventId: options.eventId,
+      traceId: options.traceId,
+      correlationId: options.correlationId,
+      transactionId: options.transactionId,
+      retry: options.retry
+    });
+
+    responseLog.internalId = options.internalId;
+
+    if (options.endToEndId) {
+      responseLog.externalTransactionId = options.endToEndId;
+      responseLog.endToEndId = options.endToEndId;
+    }
+
+    if (response.data?.execution_id) {
+      responseLog.executionId = response.data.execution_id;
+    }
+
+    this.logger.log('NETWORK_RESPONSE MOL', responseLog);
+  }
+
+  /**
+   * Log MOL query response immediately after receiving it
+   */
+  private logMolQueryResponse(
+    response: AxiosResponse<MolPaymentQueryResponseDto>,
+    options: {
+      eventId: string;
+      traceId: string;
+      correlationId: string;
+      internalId?: string;
+      endToEndId?: string;
+      url: string;
+      retry?: boolean;
+    }
+  ): void {
+    const responseLog = buildNetworkResponseLog(response, {
+      eventId: options.eventId,
+      traceId: options.traceId,
+      correlationId: options.correlationId,
+      retry: options.retry
+    });
+
+    responseLog.url = options.url;
+    responseLog.method = 'GET';
+
+    if (options.internalId) {
+      responseLog.internalId = options.internalId;
+    }
+
+    if (options.endToEndId) {
+      responseLog.endToEndId = options.endToEndId;
+    }
+
+    this.logger.log('NETWORK_RESPONSE MOL_QUERY', responseLog);
   }
 }

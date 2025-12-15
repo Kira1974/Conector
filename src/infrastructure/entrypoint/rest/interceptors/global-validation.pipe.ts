@@ -5,7 +5,7 @@ export class GlobalValidationPipe extends ValidationPipe {
   constructor() {
     super({
       transform: true,
-      whitelist: true,
+      whitelist: false,
       forbidNonWhitelisted: true,
       disableErrorMessages: false,
       exceptionFactory: (validationErrors: ValidationError[] = []) => {

@@ -1,4 +1,15 @@
 {
+  "externalServices": {
+    "oauth": {
+      "baseUrl": "https://auth-test.opencco.com/oauth2"
+    },
+    "dife": {
+      "baseUrl": "https://keymgmt-test.opencco.com"
+    },
+    "mol": {
+      "baseUrl": "https://payment-test.opencco.com"
+    }
+  },
   "mountebank": {
     "enabled": true,
     "oauthPort": 4545,

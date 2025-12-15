@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AxiosResponse } from 'axios';
 import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
 
 import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
@@ -10,6 +11,7 @@ import { LoggingConfigService } from '@config/logging-config.service';
 
 import { ResilienceConfigService } from '../resilience-config.service';
 import { KeyResolutionMapper } from '../mapper';
+import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network-log.util';
 
 import { ResolveKeyRequestDto, ResolveKeyResponseDto } from './dto';
 
@@ -63,54 +65,72 @@ export class DifeProvider {
         }
       };
 
-      // Log request JSON
-      const token = await this.auth.getToken();
-      const headers: Record<string, string> = {
+      const difeEventId = request.transactionId || request.correlationId;
+      const difeTraceId = request.transactionId || request.correlationId;
+      const difeCorrelationId = request.correlationId;
+
+      let token = await this.auth.getToken();
+      let headers: Record<string, string> = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       };
 
-      const requestLog: Record<string, unknown> = {
+      const requestLog = buildNetworkRequestLog({
         url,
         method: 'POST',
         requestBody: JSON.stringify(requestBody, null, 2),
-        eventId: request.correlationId,
-        correlationId: request.correlationId
-      };
+        eventId: difeEventId,
+        traceId: difeTraceId,
+        correlationId: difeCorrelationId,
+        transactionId: request.transactionId,
+        headers,
+        enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
+      });
 
-      if (request.transactionId) {
-        requestLog.transactionId = request.transactionId;
-      }
-
-      if (this.ENABLE_HTTP_HEADERS_LOG) {
-        requestLog.headers = headers;
-      }
-
-      this.logger.log('DIFE Request', requestLog);
+      this.logger.log('NETWORK_REQUEST DIFE', requestLog);
 
       const timeout = this.resilienceConfig.getDifeTimeout();
-      const response = await this.http.instance.post<ResolveKeyResponseDto>(url, requestBody, {
+      let response = await this.http.instance.post<ResolveKeyResponseDto>(url, requestBody, {
         headers,
         timeout
       });
 
-      // Log response JSON
-      const responseLog: Record<string, unknown> = {
-        status: response.status,
-        responseBody: JSON.stringify(response.data, null, 2),
-        eventId: request.correlationId,
-        correlationId: request.correlationId
-      };
+      this.logNetworkResponse(response, {
+        eventId: difeEventId,
+        traceId: difeTraceId,
+        correlationId: difeCorrelationId,
+        transactionId: request.transactionId
+      });
 
-      if (request.transactionId) {
-        responseLog.transactionId = request.transactionId;
+      if (response.status === 401 || response.status === 403) {
+        this.logger.warn('DIFE request failed with authentication error, clearing token cache and retrying', {
+          eventId: difeEventId,
+          traceId: difeTraceId,
+          correlationId: difeCorrelationId,
+          transactionId: request.transactionId,
+          status: response.status
+        });
+
+        this.auth.clearCache();
+        token = await this.auth.getToken();
+        headers = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        };
+
+        response = await this.http.instance.post<ResolveKeyResponseDto>(url, requestBody, {
+          headers,
+          timeout
+        });
+
+        this.logNetworkResponse(response, {
+          eventId: difeEventId,
+          traceId: difeTraceId,
+          correlationId: difeCorrelationId,
+          transactionId: request.transactionId,
+          retry: true
+        });
       }
-
-      if (response.data?.execution_id) {
-        responseLog.externalTransactionId = response.data.execution_id;
-      }
-
-      this.logger.log('DIFE Response', responseLog);
 
       // Convert provider DTO response to domain model
       const responseDto: ResolveKeyResponseDto = response.data;
@@ -154,6 +174,28 @@ export class DifeProvider {
         request.correlationId
       );
     }
+  }
+
+  /**
+   * Log network response immediately after receiving it
+   */
+  private logNetworkResponse(
+    response: AxiosResponse<ResolveKeyResponseDto>,
+    options: {
+      eventId: string;
+      traceId: string;
+      correlationId: string;
+      transactionId?: string;
+      retry?: boolean;
+    }
+  ): void {
+    const responseLog = buildNetworkResponseLog(response, options);
+
+    if (response.data?.execution_id) {
+      responseLog.externalTransactionId = response.data.execution_id;
+    }
+
+    this.logger.log('NETWORK_RESPONSE DIFE', responseLog);
   }
 
   /**

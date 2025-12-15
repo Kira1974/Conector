@@ -1,0 +1,35 @@
+export declare enum IdentificationTypeMol {
+    CITIZENSHIP_ID = "CITIZENSHIP_ID",
+    FOREIGNER_ID = "FOREIGNER_ID",
+    TAX_ID = "TAX_ID",
+    PERSONAL_ID = "PERSONAL_ID",
+    TEMPORARY_PROTECTION_ID = "TEMPORARY_PROTECTION_ID",
+    SPECIAL_RESIDENCE_ID = "SPECIAL_RESIDENCE_ID",
+    PASSPORT = "PASSPORT",
+    IDENTITY_CARD = "IDENTITY_CARD"
+}
+export declare enum KeyTypeMol {
+    IDENTIFICATION = "IDENTIFICATION",
+    MAIL = "MAIL",
+    PHONE = "PHONE",
+    ALPHANUMERIC = "ALPHANUMERIC",
+    MERCHANT_CODE = "MERCHANT_CODE"
+}
+export declare enum BillingResponsibleMol {
+    DEBT = "DEBT",
+    CRED = "CRED",
+    SHAR = "SHAR",
+    SLEV = "SLEV"
+}
+export declare enum originTypeMol {
+    QR_STATIC = "QR_STATIC",
+    QR_DYNAMIC = "QR_DYNAMIC",
+    KEY = "KEY"
+}
+export declare enum PaymentMethodTypeMol {
+    SAVINGS_ACCOUNT = "SAVINGS_ACCOUNT",
+    CHECKING_ACCOUNT = "CHECKING_ACCOUNT",
+    LOW_AMOUNT_DEPOSIT = "LOW_AMOUNT_DEPOSIT",
+    INCLUSIVE_AMOUNT_DEPOSIT = "INCLUSIVE_AMOUNT_DEPOSIT",
+    REGULAR_DEPOSIT = "REGULAR_DEPOSIT"
+}

@@ -28,11 +28,18 @@ export class KeyResolutionMapper {
    * Convert provider DTO to domain model
    */
   static toDomain(dto: ResolveKeyResponseDto): KeyResolutionResponse {
+    const hasValidKey =
+      dto.key?.key &&
+      dto.key.participant &&
+      dto.key.payment_method &&
+      dto.key.person?.identification &&
+      dto.key.person.name;
+
     return {
       correlationId: dto.correlation_id,
       executionId: dto.execution_id,
       traceId: dto.trace_id,
-      resolvedKey: dto.key
+      resolvedKey: hasValidKey
         ? {
             keyType: dto.key.key.type,
             keyValue: dto.key.key.value,

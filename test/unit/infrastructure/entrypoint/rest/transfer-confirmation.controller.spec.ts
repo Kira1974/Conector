@@ -1,8 +1,7 @@
 import { TransferConfirmationController } from '@infrastructure/entrypoint/rest/transfer-confirmation.controller';
 import { ConfirmationUseCase } from '@core/usecase/confirmation.usecase';
-import { TransferConfirmationDto } from '@infrastructure/entrypoint/dto';
+import { TransferConfirmationDto, TransferResponseCode } from '@infrastructure/entrypoint/dto';
 import { ConfirmationResponse } from '@core/model';
-import { TransferFinalState } from '@core/constant';
 
 describe('TransferConfirmationController', () => {
   let controller: TransferConfirmationController;
@@ -46,7 +45,7 @@ describe('TransferConfirmationController', () => {
 
       const expectedResponse: ConfirmationResponse = {
         transactionId: 'E2E-123',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: 'E2E-123',
         additionalData: {
@@ -92,7 +91,7 @@ describe('TransferConfirmationController', () => {
 
       const expectedResponse: ConfirmationResponse = {
         transactionId: 'E2E-BAD',
-        responseCode: TransferFinalState.ERROR,
+        responseCode: TransferResponseCode.ERROR,
         message: 'ERR-001: Invalid status',
         externalTransactionId: 'E2E-BAD',
         additionalData: {
@@ -133,7 +132,7 @@ describe('TransferConfirmationController', () => {
 
       const expectedResponse: ConfirmationResponse = {
         transactionId: 'E2E-UNKNOWN',
-        responseCode: TransferFinalState.PENDING,
+        responseCode: TransferResponseCode.PENDING,
         message: 'Payment pending',
         externalTransactionId: 'E2E-UNKNOWN',
         additionalData: {

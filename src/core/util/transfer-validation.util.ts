@@ -70,39 +70,91 @@ export function buildDifeErrorResponseIfAny(
   request: TransferRequestDto,
   keyResolution: KeyResolutionResponse
 ): TransferResponseDto | null {
-  if (keyResolution.status !== 'ERROR') {
-    return null;
+  if (keyResolution.status === 'ERROR') {
+    const errorDescriptions = keyResolution.errors || [];
+    const firstError = errorDescriptions[0] || DEFAULT_DIFE_ERROR_MESSAGE;
+    const errorCode = extractDifeErrorCode(firstError);
+    const errorDescription = extractDifeErrorDescription(firstError);
+
+    const errorInfo: NetworkErrorInfo | null = errorCode
+      ? {
+          code: errorCode,
+          description: errorDescription,
+          source: 'DIFE'
+        }
+      : null;
+
+    const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+    const responseCode = determineResponseCodeFromMessage(mappedMessage);
+
+    return {
+      transactionId: request.transactionId,
+      responseCode,
+      message: mappedMessage,
+      networkMessage: errorInfo
+        ? ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source)
+        : undefined,
+      networkCode: errorInfo?.code
+    };
   }
 
-  const errorDescriptions = keyResolution.errors || [];
-  const firstError = errorDescriptions[0] || DEFAULT_DIFE_ERROR_MESSAGE;
-  const errorCode = extractDifeErrorCode(firstError);
-  const errorDescription = extractDifeErrorDescription(firstError);
+  if (!keyResolution.resolvedKey) {
+    const errorInfo: NetworkErrorInfo = {
+      code: undefined,
+      description: 'Key resolution returned no data',
+      source: 'DIFE'
+    };
 
-  const errorInfo: NetworkErrorInfo | null = errorCode
-    ? {
-        code: errorCode,
-        description: errorDescription,
-        source: 'DIFE'
-      }
-    : null;
+    return {
+      transactionId: request.transactionId,
+      responseCode: TransferResponseCode.ERROR,
+      message: TransferMessage.KEY_RESOLUTION_ERROR,
+      networkMessage: ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source),
+      networkCode: undefined
+    };
+  }
 
-  const isValidationError = errorCode ? isDifeValidationErrorCode(errorCode) : false;
-  const responseCode = isValidationError ? TransferResponseCode.REJECTED_BY_PROVIDER : TransferResponseCode.ERROR;
-
-  return {
-    transactionId: request.transactionId,
-    responseCode,
-    message: ErrorMessageMapper.mapToMessage(errorInfo),
-    networkMessage: errorInfo
-      ? ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source)
-      : undefined,
-    networkCode: errorInfo?.code
-  };
+  return null;
 }
 
 function isDifeValidationErrorCode(errorCode: string): boolean {
-  const validationErrorCodes = ['DIFE-0004', 'DIFE-0005', 'DIFE-4000', 'DIFE-4001', 'DIFE-5005'];
+  const validationErrorCodes = [
+    'DIFE-0004',
+    'DIFE-0005',
+    'DIFE-0006',
+    'DIFE-0007',
+    'DIFE-0009',
+    'DIFE-0010',
+    'DIFE-0011',
+    'DIFE-0012',
+    'DIFE-0013',
+    'DIFE-0014',
+    'DIFE-0015',
+    'DIFE-0016',
+    'DIFE-0018',
+    'DIFE-4000',
+    'DIFE-4001',
+    'DIFE-5004',
+    'DIFE-5005',
+    'DIFE-5006',
+    'DIFE-5007',
+    'DIFE-5010',
+    'DIFE-5011',
+    'DIFE-5012',
+    'DIFE-5013',
+    'DIFE-5014',
+    'DIFE-5015',
+    'DIFE-5016',
+    'DIFE-5017',
+    'DIFE-5018',
+    'DIFE-5019',
+    'DIFE-5021',
+    'DIFE-5022',
+    'DIFE-5023',
+    'DIFE-5024',
+    'DIFE-5025',
+    'DIFE-5026'
+  ];
   if (validationErrorCodes.includes(errorCode)) {
     return true;
   }
@@ -141,6 +193,7 @@ const MOL_VALIDATION_ERROR_CODES = [
   '400',
   '403',
   'MOL-4003',
+  'MOL-4006',
   'MOL-4007',
   'MOL-4008',
   'MOL-4009',
@@ -149,6 +202,7 @@ const MOL_VALIDATION_ERROR_CODES = [
   'MOL-4012',
   'MOL-4013',
   'MOL-4014',
+  'MOL-4016',
   'MOL-5005'
 ] as const;
 
@@ -201,6 +255,24 @@ function extractDifeErrorCode(errorString: string): string | undefined {
 function extractDifeErrorDescription(errorString: string): string {
   const match = errorString.match(/DIFE-\d{4}: (.+)/);
   return match ? match[1] : errorString;
+}
+
+export function determineResponseCodeFromMessage(message: TransferMessage): TransferResponseCode {
+  switch (message) {
+    case TransferMessage.DOCUMENT_MISMATCH:
+    case TransferMessage.ACCOUNT_MISMATCH:
+      return TransferResponseCode.VALIDATION_FAILED;
+    case TransferMessage.VALIDATION_FAILED:
+    case TransferMessage.INVALID_KEY_FORMAT:
+    case TransferMessage.INVALID_ACCOUNT_NUMBER:
+    case TransferMessage.KEY_NOT_FOUND_OR_CANCELED:
+    case TransferMessage.KEY_SUSPENDED:
+    case TransferMessage.PAYMENT_REJECTED:
+    case TransferMessage.PAYMENT_DECLINED:
+      return TransferResponseCode.REJECTED_BY_PROVIDER;
+    default:
+      return TransferResponseCode.ERROR;
+  }
 }
 
 function buildValidationErrorResponse(

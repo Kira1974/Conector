@@ -2,7 +2,7 @@ import { ThLoggerService } from 'themis';
 
 import { ConfirmationUseCase } from '@core/usecase/confirmation.usecase';
 import { PendingTransferService } from '@core/usecase/pending-transfer.service';
-import { TransferFinalState } from '@core/constant';
+import { TransferResponseCode } from '@infrastructure/entrypoint/dto';
 import { ConfirmationResponse } from '@core/model';
 import { TransferConfirmationDto } from '@infrastructure/entrypoint/dto/transfer-confirmation.dto';
 
@@ -23,7 +23,8 @@ describe('ConfirmationUseCase', () => {
       waitForConfirmation: jest.fn(),
       resolveConfirmation: jest.fn(),
       getPendingCount: jest.fn(),
-      clearAll: jest.fn()
+      clearAll: jest.fn(),
+      getTransactionIdByEndToEndId: jest.fn().mockReturnValue(undefined)
     } as any;
 
     mockLoggerService = {
@@ -72,7 +73,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result).toEqual({
         transactionId: '20251120135790864CRB001763694229136',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: '20251120135790864CRB001763694229136',
         additionalData: {
@@ -85,13 +86,13 @@ describe('ConfirmationUseCase', () => {
         '20251120135790864CRB001763694229136',
         expect.objectContaining({
           transactionId: '20251120135790864CRB001763694229136',
-          responseCode: TransferFinalState.APPROVED,
+          responseCode: TransferResponseCode.APPROVED,
           message: 'Payment approved'
         }),
         'webhook'
       );
 
-      expect(mockLogger.log).toHaveBeenCalledWith('CONFIRM Request', expect.any(Object));
+      expect(mockLogger.log).toHaveBeenCalledWith('NETWORK_REQUEST WEBHOOK', expect.any(Object));
       expect(mockLogger.log).toHaveBeenCalledWith('Transfer confirmation processed successfully', expect.any(Object));
     });
 
@@ -103,7 +104,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result).toEqual({
         transactionId: '20251120135790864CRB001763694229136',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: '20251120135790864CRB001763694229136',
         additionalData: {
@@ -116,14 +117,14 @@ describe('ConfirmationUseCase', () => {
         '20251120135790864CRB001763694229136',
         expect.objectContaining({
           transactionId: '20251120135790864CRB001763694229136',
-          responseCode: TransferFinalState.APPROVED,
+          responseCode: TransferResponseCode.APPROVED,
           message: 'Payment approved'
         }),
         'webhook'
       );
     });
 
-    it('should process REJECTED confirmation and resolve with DECLINED', () => {
+    it('should process REJECTED confirmation and resolve with REJECTED_BY_PROVIDER', () => {
       const notification = createMockNotification('REJECTED');
       mockPendingTransferService.resolveConfirmation.mockReturnValue(true);
 
@@ -131,7 +132,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result).toEqual({
         transactionId: '20251120135790864CRB001763694229136',
-        responseCode: TransferFinalState.DECLINED,
+        responseCode: TransferResponseCode.REJECTED_BY_PROVIDER,
         message: 'Payment declined',
         externalTransactionId: '20251120135790864CRB001763694229136',
         additionalData: {
@@ -144,21 +145,21 @@ describe('ConfirmationUseCase', () => {
         '20251120135790864CRB001763694229136',
         expect.objectContaining({
           transactionId: '20251120135790864CRB001763694229136',
-          responseCode: TransferFinalState.DECLINED,
+          responseCode: TransferResponseCode.REJECTED_BY_PROVIDER,
           message: 'Payment declined'
         }),
         'webhook'
       );
     });
 
-    it('should process ERROR confirmation and resolve with DECLINED', () => {
+    it('should process ERROR confirmation and resolve with REJECTED_BY_PROVIDER when no errors in payload', () => {
       const notification = createMockNotification('ERROR');
       mockPendingTransferService.resolveConfirmation.mockReturnValue(true);
 
       const result: ConfirmationResponse = useCase.processConfirmation(notification);
 
-      expect(result.responseCode).toBe(TransferFinalState.ERROR);
-      expect(result.message).toBe('Unknown settlement status');
+      expect(result.responseCode).toBe(TransferResponseCode.REJECTED_BY_PROVIDER);
+      expect(result.message).toBe('Payment declined');
     });
 
     it('should handle unknown status and return error response with errors from payload', () => {
@@ -170,23 +171,23 @@ describe('ConfirmationUseCase', () => {
 
       const result: ConfirmationResponse = useCase.processConfirmation(notification);
 
-      expect(result).toEqual({
-        transactionId: 'E2E-123',
-        responseCode: 'ERROR',
-        message: 'ERR001: Invalid account, ERR002: Insufficient funds',
-        externalTransactionId: 'E2E-123',
-        additionalData: {
-          END_TO_END: 'E2E-123',
-          EXECUTION_ID: 'EXEC-456'
-        }
+      expect(result.transactionId).toBe('E2E-123');
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.message).toBe('Unknown error occurred');
+      expect(result.networkCode).toBe('ERR001');
+      expect(result.networkMessage).toContain('MOL: Invalid account');
+      expect(result.externalTransactionId).toBe('E2E-123');
+      expect(result.additionalData).toEqual({
+        END_TO_END: 'E2E-123',
+        EXECUTION_ID: 'EXEC-456'
       });
 
       expect(mockPendingTransferService.resolveConfirmation).toHaveBeenCalledWith(
         'E2E-123',
         expect.objectContaining({
           transactionId: 'E2E-123',
-          responseCode: 'ERROR',
-          message: 'ERR001: Invalid account, ERR002: Insufficient funds'
+          responseCode: TransferResponseCode.ERROR,
+          message: 'Unknown error occurred'
         }),
         'webhook'
       );
@@ -200,7 +201,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result).toEqual({
         transactionId: 'E2E-789',
-        responseCode: 'ERROR',
+        responseCode: TransferResponseCode.ERROR,
         message: 'Unknown settlement status',
         externalTransactionId: 'E2E-789',
         additionalData: {
@@ -213,7 +214,7 @@ describe('ConfirmationUseCase', () => {
         'E2E-789',
         expect.objectContaining({
           transactionId: 'E2E-789',
-          responseCode: 'ERROR',
+          responseCode: TransferResponseCode.ERROR,
           message: 'Unknown settlement status'
         }),
         'webhook'
@@ -241,7 +242,7 @@ describe('ConfirmationUseCase', () => {
         'Confirmation for unknown or expired transfer',
         expect.objectContaining({
           endToEndId: '20251120135790864CRB001763694229136',
-          finalState: TransferFinalState.APPROVED
+          finalState: TransferResponseCode.APPROVED
         })
       );
     });
@@ -252,12 +253,12 @@ describe('ConfirmationUseCase', () => {
 
       const result: ConfirmationResponse = useCase.processConfirmation(notificationLowerCase);
 
-      expect(result.responseCode).toBe(TransferFinalState.APPROVED);
+      expect(result.responseCode).toBe(TransferResponseCode.APPROVED);
       expect(mockPendingTransferService.resolveConfirmation).toHaveBeenCalledWith(
         '20251120135790864CRB001763694229136',
         expect.objectContaining({
           transactionId: '20251120135790864CRB001763694229136',
-          responseCode: TransferFinalState.APPROVED,
+          responseCode: TransferResponseCode.APPROVED,
           message: 'Payment approved'
         }),
         'webhook'
@@ -271,7 +272,7 @@ describe('ConfirmationUseCase', () => {
       useCase.processConfirmation(notification);
 
       expect(mockLogger.log).toHaveBeenCalledWith(
-        'CONFIRM Request',
+        'NETWORK_REQUEST WEBHOOK',
         expect.objectContaining({
           notificationId: 'NOTIF-001',
           source: 'credibanco',
@@ -287,7 +288,7 @@ describe('ConfirmationUseCase', () => {
         expect.objectContaining({
           endToEndId: '20251120135790864CRB001763694229136',
           executionId: '202511200BANKCRB00029a85dc48b',
-          finalState: TransferFinalState.APPROVED,
+          finalState: TransferResponseCode.APPROVED,
           notificationId: 'NOTIF-001'
         })
       );
@@ -299,7 +300,9 @@ describe('ConfirmationUseCase', () => {
 
       const result: ConfirmationResponse = useCase.processConfirmation(notification);
 
-      expect(result.message).toBe('ERR001: Single error message');
+      expect(result.networkCode).toBe('ERR001');
+      expect(result.networkMessage).toContain('MOL: Single error message');
+      expect(result.message).toBe('Unknown error occurred');
     });
 
     it('should handle empty errors array', () => {

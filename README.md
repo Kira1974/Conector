@@ -51,6 +51,7 @@ All documentation is available in the [`docs/`](docs/) directory:
 
 - **[Architecture](docs/architecture.md)** - Hexagonal architecture overview and design patterns
 - **[Configuration](docs/configuration.md)** - Configuration system guide
+- **[Logging](docs/logging.md)** - Logging guide for transaction tracking
 - **[Mountebank](docs/mountebank.md)** - Using Mountebank for development and testing
 - **[Webhook Flow](docs/webhook-flow.md)** - Transfer flow with webhook callbacks
 - **[MOL-DIFE Mapping](docs/mol-dife-mapping.md)** - Field mapping between entrypoint and external APIs

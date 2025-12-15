@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, RequestMethod } from '@nestjs/common';
 import helmet from 'helmet';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 import { AppConfigService } from './app-config.service';
@@ -25,11 +26,22 @@ async function bootstrap(): Promise<void> {
     ]
   });
 
+  const config = new DocumentBuilder()
+    .setTitle('Charon Adapter')
+    .setDescription('Credibanco Connector')
+    .setVersion('1.0')
+    .addTag('Key Resolution', 'Endpoint to resolve a payment key')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, document);
+
   await app.listen(port);
   const logger = new Logger('Bootstrap');
   logger.log(`REST API running on: http://localhost:${port}/api/v1`);
   logger.log(`Healthcheck available at: http://localhost:${port}/health`);
   logger.log(`Prometheus metrics available at: http://localhost:${port}/metrics`);
+  logger.log(`Swagger documentation: http://localhost:${port}/api-docs`);
 }
 
 bootstrap().catch((error) => {

@@ -97,11 +97,20 @@ describe('TransferController', () => {
       expect(mockResponse.json).toHaveBeenCalledWith(mockResponseDto);
       expect(transferUseCase.executeTransfer).toHaveBeenCalledWith(mockRequest);
       expect(mockLogger.log).toHaveBeenCalledWith(
-        'Transfer request received',
+        'CHARON Request',
         expect.objectContaining({
+          method: 'POST',
+          transactionId: mockRequest.transactionId,
           amount: mockRequest.transaction.amount.value,
-          currency: mockRequest.transaction.amount.currency,
-          transactionId: mockRequest.transactionId
+          currency: mockRequest.transaction.amount.currency
+        })
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'CHARON Response',
+        expect.objectContaining({
+          status: 200,
+          transactionId: mockResponseDto.transactionId,
+          responseCode: mockResponseDto.responseCode
         })
       );
     });
@@ -122,7 +131,7 @@ describe('TransferController', () => {
       expect(transferUseCase.executeTransfer).toHaveBeenCalledWith(mockRequest);
     });
 
-    it('should log request details', async () => {
+    it('should log request and response details', async () => {
       const mockResponseDto: TransferResponseDto = {
         transactionId: 'TXN-123',
         responseCode: TransferResponseCode.APPROVED,
@@ -133,11 +142,20 @@ describe('TransferController', () => {
       await controller.transfer(mockRequest, mockResponse);
 
       expect(mockLogger.log).toHaveBeenCalledWith(
-        'Transfer request received',
+        'CHARON Request',
         expect.objectContaining({
+          method: 'POST',
+          transactionId: mockRequest.transactionId,
           amount: 100000,
-          currency: 'COP',
-          transactionId: expect.any(String)
+          currency: 'COP'
+        })
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'CHARON Response',
+        expect.objectContaining({
+          status: 200,
+          transactionId: mockResponseDto.transactionId,
+          responseCode: mockResponseDto.responseCode
         })
       );
     });

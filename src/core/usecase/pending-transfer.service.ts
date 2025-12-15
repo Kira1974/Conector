@@ -1,8 +1,8 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
-import { TransferFinalState } from '@core/constant';
 import { AdditionalDataKey, ConfirmationResponse } from '@core/model';
+import { TransferResponseCode } from '@infrastructure/entrypoint/dto';
 import { IMolPaymentProvider } from '@core/provider';
 import { MolPaymentQueryRequestDto, MolPaymentQueryResponseDto } from '@infrastructure/provider/http-clients/dto';
 import { TransferConfigService } from '@config/transfer-config.service';
@@ -70,7 +70,8 @@ export class PendingTransferService implements OnModuleDestroy {
       timeoutMs: this.TIMEOUT_MS,
       currentPending: this.pendingTransfers.size,
       eventId: transactionId,
-      correlationId: transactionId
+      traceId: transactionId,
+      correlationId: endToEndId
     });
 
     return this.registerPendingTransfer(transactionId, endToEndId, startedAt);
@@ -103,6 +104,11 @@ export class PendingTransferService implements OnModuleDestroy {
     return this.pendingTransfers.size;
   }
 
+  getTransactionIdByEndToEndId(endToEndId: string): string | undefined {
+    const pending = this.pendingTransfers.get(endToEndId);
+    return pending?.transactionId;
+  }
+
   clearAll(): void {
     this.logger.log('Clearing all pending transfers', {
       count: this.pendingTransfers.size
@@ -130,6 +136,9 @@ export class PendingTransferService implements OnModuleDestroy {
 
   onModuleDestroy(): void {
     this.logger.log('PendingTransferService shutting down', {
+      eventId: 'shutdown',
+      traceId: 'shutdown',
+      correlationId: 'shutdown',
       pendingCount: this.pendingTransfers.size
     });
 
@@ -239,8 +248,13 @@ export class PendingTransferService implements OnModuleDestroy {
     });
   }
 
-  private logUnknownConfirmation(endToEndId: string, finalState: TransferFinalState): void {
+  private logUnknownConfirmation(endToEndId: string, finalState: TransferResponseCode): void {
+    const transactionId = this.getTransactionIdByEndToEndId(endToEndId) || endToEndId;
     this.logger.warn('Confirmation received for unknown or expired transfer', {
+      eventId: transactionId,
+      traceId: transactionId,
+      correlationId: endToEndId,
+      transactionId,
       endToEndId,
       finalState,
       currentPending: this.pendingTransfers.size
@@ -250,7 +264,7 @@ export class PendingTransferService implements OnModuleDestroy {
   private logConfirmationResolution(
     pending: PendingTransfer,
     endToEndId: string,
-    finalState: TransferFinalState,
+    finalState: TransferResponseCode,
     source: ConfirmationSource
   ): void {
     const resolvedAt = Date.now();
@@ -260,8 +274,9 @@ export class PendingTransferService implements OnModuleDestroy {
     const waitingDurationMs = resolvedAt - pending.createdAt;
 
     const logData: Record<string, unknown> = {
-      eventId: endToEndId,
-      correlationId: pending.transactionId,
+      eventId: pending.transactionId,
+      traceId: pending.transactionId,
+      correlationId: endToEndId,
       transactionId: pending.transactionId,
       endToEndId,
       finalState,
@@ -342,7 +357,13 @@ export class PendingTransferService implements OnModuleDestroy {
       try {
         const pending = this.pendingTransfers.get(endToEndId);
         if (!pending || pending.isResolved) {
+          const pending = this.pendingTransfers.get(endToEndId);
+          const transactionId = pending?.transactionId || endToEndId;
           this.logger.log('Polling stopped - transfer already resolved', {
+            eventId: transactionId,
+            traceId: transactionId,
+            correlationId: endToEndId,
+            transactionId,
             endToEndId,
             attempts
           });
@@ -355,6 +376,9 @@ export class PendingTransferService implements OnModuleDestroy {
 
         if (timeUntilTimeout <= 0) {
           this.logger.log('Polling stopped - main timeout reached', {
+            eventId: transactionId,
+            traceId: transactionId,
+            correlationId: endToEndId,
             transactionId,
             endToEndId,
             attempts,
@@ -367,6 +391,9 @@ export class PendingTransferService implements OnModuleDestroy {
         // Only attempt polling if we have enough time for the request
         if (timeUntilTimeout < this.MOL_QUERY_TIMEOUT_MS) {
           this.logger.log('Polling stopped - insufficient time for MOL query before timeout', {
+            eventId: transactionId,
+            traceId: transactionId,
+            correlationId: endToEndId,
             transactionId,
             endToEndId,
             attempts,
@@ -377,6 +404,9 @@ export class PendingTransferService implements OnModuleDestroy {
         }
 
         this.logger.log('Polling MOL for transfer status', {
+          eventId: transactionId,
+          traceId: transactionId,
+          correlationId: endToEndId,
           transactionId,
           endToEndId,
           attempt: attempts,
@@ -390,17 +420,20 @@ export class PendingTransferService implements OnModuleDestroy {
           // Check if items exist and have at least one element
           if (!response.items || response.items.length === 0) {
             this.logger.log('MOL polling returned empty items - payment not found yet', {
+              eventId: transactionId,
+              traceId: transactionId,
+              correlationId: endToEndId,
               transactionId,
               endToEndId,
               attempts,
               timeUntilTimeout
             });
           } else {
-            const finalState = this.mapMolStatusToTransferFinalState(response.items[0]?.status);
+            const finalState = this.mapMolStatusToTransferResponseCode(response.items[0]?.status);
             const confirmationResponse: ConfirmationResponse = {
               transactionId: endToEndId,
               responseCode: finalState,
-              message: finalState === TransferFinalState.APPROVED ? 'Payment approved' : 'Payment declined',
+              message: finalState === TransferResponseCode.APPROVED ? 'Payment approved' : 'Payment declined',
               externalTransactionId: endToEndId,
               additionalData: {
                 [AdditionalDataKey.END_TO_END]: endToEndId,
@@ -409,6 +442,9 @@ export class PendingTransferService implements OnModuleDestroy {
             };
 
             this.logger.log('MOL polling returned successful response - resolving confirmation', {
+              eventId: transactionId,
+              traceId: transactionId,
+              correlationId: endToEndId,
               transactionId,
               endToEndId,
               attempts,
@@ -498,26 +534,26 @@ export class PendingTransferService implements OnModuleDestroy {
     );
   }
 
-  private mapMolStatusToTransferFinalState(molStatus: string): TransferFinalState {
+  private mapMolStatusToTransferResponseCode(molStatus: string): TransferResponseCode {
     const normalizedStatus = (molStatus || '').toUpperCase();
     switch (normalizedStatus) {
       case 'COMPLETED':
       case 'SUCCESS':
       case 'SETTLED':
       case 'APPROVED':
-        return TransferFinalState.APPROVED;
+        return TransferResponseCode.APPROVED;
       case 'FAILED':
       case 'ERROR':
       case 'REJECTED':
-        return TransferFinalState.DECLINED;
+        return TransferResponseCode.REJECTED_BY_PROVIDER;
       case 'PROCESSING':
       case 'PENDING':
-        return TransferFinalState.APPROVED; // PENDING transfers are treated as approved until final confirmation
+        return TransferResponseCode.APPROVED; // PENDING transfers are treated as approved until final confirmation
       default:
-        this.logger.warn('Unknown MOL status, defaulting to DECLINED', {
+        this.logger.warn('Unknown MOL status, defaulting to REJECTED_BY_PROVIDER', {
           molStatus
         });
-        return TransferFinalState.DECLINED;
+        return TransferResponseCode.REJECTED_BY_PROVIDER;
     }
   }
 }

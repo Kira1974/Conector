@@ -1,7 +1,7 @@
 import { ThLoggerService } from 'themis';
 
 import { PendingTransferService } from '@core/usecase/pending-transfer.service';
-import { TransferFinalState } from '@core/constant';
+import { TransferResponseCode } from '@infrastructure/entrypoint/dto';
 import { ConfirmationResponse } from '@core/model';
 import { TransferConfigService } from '@config/transfer-config.service';
 import { ExternalServicesConfigService } from '@config/external-services-config.service';
@@ -62,7 +62,7 @@ describe('PendingTransferService', () => {
 
       const mockResponse: ConfirmationResponse = {
         transactionId: 'E2E-123',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: 'E2E-123',
         additionalData: {
@@ -87,7 +87,7 @@ describe('PendingTransferService', () => {
 
       const mockResponse: ConfirmationResponse = {
         transactionId: 'E2E-456',
-        responseCode: TransferFinalState.DECLINED,
+        responseCode: TransferResponseCode.REJECTED_BY_PROVIDER,
         message: 'Payment declined',
         externalTransactionId: 'E2E-456',
         additionalData: {
@@ -126,7 +126,7 @@ describe('PendingTransferService', () => {
 
       const mockResponse: ConfirmationResponse = {
         transactionId: 'E2E-DUP',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: 'E2E-DUP',
         additionalData: {
@@ -151,7 +151,7 @@ describe('PendingTransferService', () => {
     it('should return false for unknown endToEndId', () => {
       const mockResponse: ConfirmationResponse = {
         transactionId: 'E2E-UNKNOWN',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: 'E2E-UNKNOWN',
         additionalData: {
@@ -164,8 +164,12 @@ describe('PendingTransferService', () => {
 
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith('Confirmation received for unknown or expired transfer', {
+        eventId: 'E2E-UNKNOWN',
+        traceId: 'E2E-UNKNOWN',
+        correlationId: 'E2E-UNKNOWN',
+        transactionId: 'E2E-UNKNOWN',
         endToEndId: 'E2E-UNKNOWN',
-        finalState: TransferFinalState.APPROVED,
+        finalState: TransferResponseCode.APPROVED,
         currentPending: 0
       });
     });
@@ -177,7 +181,7 @@ describe('PendingTransferService', () => {
 
       const mockResponse: ConfirmationResponse = {
         transactionId: 'E2E-CLEAR',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: 'E2E-CLEAR',
         additionalData: {
@@ -209,7 +213,7 @@ describe('PendingTransferService', () => {
 
       const mockResponse: ConfirmationResponse = {
         transactionId: 'E2E-001',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: 'E2E-001',
         additionalData: {
@@ -381,6 +385,9 @@ describe('PendingTransferService', () => {
 
       expect(service.getPendingCount()).toBe(0);
       expect(mockLogger.log).toHaveBeenCalledWith('PendingTransferService shutting down', {
+        eventId: 'shutdown',
+        traceId: 'shutdown',
+        correlationId: 'shutdown',
         pendingCount: 2
       });
     });
@@ -392,6 +399,9 @@ describe('PendingTransferService', () => {
       service.onModuleDestroy();
 
       expect(mockLogger.log).toHaveBeenCalledWith('PendingTransferService shutting down', {
+        eventId: 'shutdown',
+        traceId: 'shutdown',
+        correlationId: 'shutdown',
         pendingCount: 0
       });
     });
@@ -414,7 +424,7 @@ describe('PendingTransferService', () => {
 
       const mockResponse: ConfirmationResponse = {
         transactionId: 'E2E-RESOLVE-ERROR',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: 'Payment approved',
         externalTransactionId: 'E2E-RESOLVE-ERROR',
         additionalData: {

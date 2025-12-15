@@ -15,7 +15,8 @@ import {
   isMolValidationError,
   isMolValidationErrorByCode,
   extractNetworkErrorInfo,
-  buildAdditionalDataFromKeyResolution
+  buildAdditionalDataFromKeyResolution,
+  determineResponseCodeFromMessage
 } from '../util';
 import {
   ERROR_SOURCE_DIFE,
@@ -23,7 +24,7 @@ import {
   UNKNOWN_ERROR_MESSAGE,
   DEFAULT_TIMEOUT_MESSAGE
 } from '../util/error-constants.util';
-import { TransferFinalState, TransferMessage } from '../constant';
+import { TransferMessage } from '../constant';
 import { KeyResolutionException } from '../exception/custom.exceptions';
 import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer-request.dto';
 import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
@@ -172,6 +173,9 @@ export class TransferUseCase {
     startedAt: number
   ): Promise<TransferResponseDto> {
     this.logger.log('Waiting for transfer confirmation', {
+      eventId: request.transactionId,
+      traceId: request.transactionId,
+      correlationId: endToEndId,
       transactionId: request.transactionId,
       endToEndId,
       timeoutSeconds: TransferUseCase.TRANSFER_TIMEOUT_SECONDS
@@ -184,14 +188,14 @@ export class TransferUseCase {
         startedAt
       );
 
-      const isApproved = confirmationResponse.responseCode === TransferFinalState.APPROVED;
+      const isApproved = confirmationResponse.responseCode === TransferResponseCode.APPROVED;
 
       return {
         transactionId: request.transactionId,
-        responseCode: isApproved ? TransferResponseCode.APPROVED : TransferResponseCode.REJECTED_BY_PROVIDER,
+        responseCode: confirmationResponse.responseCode,
         message: isApproved ? TransferMessage.PAYMENT_APPROVED : TransferMessage.PAYMENT_DECLINED,
-        networkMessage: undefined,
-        networkCode: undefined,
+        networkMessage: confirmationResponse.networkMessage,
+        networkCode: confirmationResponse.networkCode,
         externalTransactionId: paymentResponse.externalTransactionId,
         additionalData: paymentResponse.additionalData
       };
@@ -199,6 +203,9 @@ export class TransferUseCase {
       const timeoutMessage = timeoutError instanceof Error ? timeoutError.message : DEFAULT_TIMEOUT_MESSAGE;
 
       this.logger.warn('Transfer confirmation timeout (controlled)', {
+        eventId: request.transactionId,
+        traceId: request.transactionId,
+        correlationId: endToEndId,
         transactionId: request.transactionId,
         endToEndId,
         error: timeoutMessage
@@ -219,9 +226,11 @@ export class TransferUseCase {
   private handleTransferError(error: unknown, transactionId: string): TransferResponseDto {
     if (error instanceof KeyResolutionException) {
       const errorMessage = error.message;
-      const errorInfo: import('../util/error-message.mapper').NetworkErrorInfo = {
+      const extractedErrorInfo = extractNetworkErrorInfo(errorMessage);
+
+      const errorInfo: import('../util/error-message.mapper').NetworkErrorInfo = extractedErrorInfo || {
         code: undefined,
-        description: errorMessage,
+        description: this.extractNetworkErrorMessageOnly(errorMessage),
         source: 'DIFE'
       };
 
@@ -236,6 +245,7 @@ export class TransferUseCase {
     const errorMessage = error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE;
     const errorInfo = extractNetworkErrorInfo(errorMessage);
     const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+    const responseCode = determineResponseCodeFromMessage(mappedMessage);
     const isDifeValidationErr = isDifeValidationError(errorMessage);
     const isMolValidationErr = isMolValidationError(errorMessage) || isMolValidationErrorByCode(errorInfo);
 
@@ -245,21 +255,14 @@ export class TransferUseCase {
         ...this.buildLogContext(transactionId),
         error: errorMessage
       });
-
-      return this.buildErrorResponse(
-        transactionId,
-        TransferResponseCode.REJECTED_BY_PROVIDER,
-        mappedMessage,
-        errorInfo
-      );
+    } else {
+      this.logger.error('Transfer execution failed', {
+        ...this.buildLogContext(transactionId),
+        error: errorMessage
+      });
     }
 
-    this.logger.error('Transfer execution failed', {
-      ...this.buildLogContext(transactionId),
-      error: errorMessage
-    });
-
-    return this.buildErrorResponse(transactionId, TransferResponseCode.ERROR, mappedMessage, errorInfo);
+    return this.buildErrorResponse(transactionId, responseCode, mappedMessage, errorInfo);
   }
 
   private buildErrorResponse(
@@ -268,14 +271,60 @@ export class TransferUseCase {
     message: TransferMessage,
     errorInfo: import('../util/error-message.mapper').NetworkErrorInfo | null
   ): TransferResponseDto {
+    const networkMessage = errorInfo
+      ? ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source)
+      : undefined;
+
     return {
       transactionId,
       responseCode,
       message,
-      networkMessage: errorInfo
-        ? ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source)
-        : undefined,
+      networkMessage,
       networkCode: errorInfo?.code
     };
+  }
+
+  private extractNetworkErrorMessageOnly(errorMessage: string): string {
+    const difeCodePattern = /(DIFE-\d{4})/;
+    const difeCodeMatch = errorMessage.match(difeCodePattern);
+
+    if (difeCodeMatch) {
+      const code = difeCodeMatch[1];
+      const codeIndex = errorMessage.indexOf(code);
+      const afterCode = errorMessage.substring(codeIndex + code.length).trim();
+      const descriptionMatch = afterCode.match(/^[:\s]*(.+?)(?:\s*\(|$)/);
+      if (descriptionMatch) {
+        return descriptionMatch[1].trim();
+      }
+    }
+
+    const technicalErrorPattern = /:\s*(?:Cannot read properties|TypeError|ReferenceError|Error:)\s*.+/i;
+    if (technicalErrorPattern.test(errorMessage)) {
+      const parts = errorMessage.split(technicalErrorPattern);
+      if (parts.length > 0 && parts[0]) {
+        const cleanMessage = parts[0].replace(/:\s*$/, '').trim();
+        if (cleanMessage.toLowerCase().includes('key resolution')) {
+          return cleanMessage;
+        }
+      }
+    }
+
+    const colonIndex = errorMessage.lastIndexOf(':');
+    if (colonIndex > 0) {
+      const beforeColon = errorMessage.substring(0, colonIndex).trim();
+      const technicalKeywords = ['cannot read', 'typeerror', 'referenceerror', 'undefined', 'null'];
+      const hasTechnicalError = technicalKeywords.some((keyword) =>
+        errorMessage
+          .substring(colonIndex + 1)
+          .toLowerCase()
+          .includes(keyword)
+      );
+
+      if (hasTechnicalError && beforeColon.toLowerCase().includes('key resolution')) {
+        return beforeColon;
+      }
+    }
+
+    return 'Key resolution failed';
   }
 }

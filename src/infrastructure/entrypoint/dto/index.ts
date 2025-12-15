@@ -7,3 +7,6 @@ export * from './transfer-response.dto';
 
 // Transfer Confirmation DTOs
 export * from './transfer-confirmation.dto';
+
+// Key resolution DTOs
+export * from './key-resolution.response.dto';

@@ -74,7 +74,7 @@ export class AuthService {
       if (this.isCacheEnabled) {
         const cachedToken = this.cache.get<string>('auth_token');
         if (cachedToken) {
-          this.logger.log('AUTH Response', {
+          this.logger.log('NETWORK_RESPONSE AUTH', {
             status: 200,
             statusText: 'OK',
             cached: true,
@@ -131,7 +131,7 @@ export class AuthService {
         requestLog.headers = safeRequestHeaders;
       }
 
-      this.logger.log('AUTH Request', requestLog);
+      this.logger.log('NETWORK_REQUEST AUTH', requestLog);
 
       const res = await this.http.instance.post<AuthResponse>(url, queryParams, {
         httpsAgent,
@@ -141,7 +141,7 @@ export class AuthService {
 
       const safeResponseHeaders = res.headers ? this.redactSensitiveHeaders(res.headers) : {};
 
-      this.logger.log('AUTH Response', {
+      this.logger.log('NETWORK_RESPONSE AUTH', {
         status: res.status,
         statusText: res.statusText,
         responseHeaders: safeResponseHeaders,

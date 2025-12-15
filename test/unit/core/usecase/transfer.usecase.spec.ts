@@ -4,7 +4,7 @@ import { TransferUseCase } from '@core/usecase';
 import { IDifeProvider, IMolPaymentProvider } from '@core/provider';
 import { PendingTransferService } from '@core/usecase/pending-transfer.service';
 import { KeyResolutionResponse } from '@core/model';
-import { TransferFinalState, TransferMessage } from '@core/constant';
+import { TransferMessage } from '@core/constant';
 import { TransferRequestDto, TransferResponseCode, TransferResponseDto } from '@infrastructure/entrypoint/dto';
 
 describe('TransferUseCase', () => {
@@ -120,7 +120,7 @@ describe('TransferUseCase', () => {
       mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
       mockPendingTransferService.waitForConfirmation.mockResolvedValue({
         transactionId: 'E2E-456',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: TransferMessage.PAYMENT_APPROVED,
         externalTransactionId: 'E2E-456',
         additionalData: {
@@ -228,7 +228,7 @@ describe('TransferUseCase', () => {
       mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
       mockPendingTransferService.waitForConfirmation.mockResolvedValue({
         transactionId: 'E2E-456',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: TransferMessage.PAYMENT_APPROVED,
         externalTransactionId: 'E2E-456',
         additionalData: {
@@ -256,7 +256,7 @@ describe('TransferUseCase', () => {
       mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
       mockPendingTransferService.waitForConfirmation.mockResolvedValue({
         transactionId: 'E2E-456',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: TransferMessage.PAYMENT_APPROVED,
         externalTransactionId: 'E2E-456',
         additionalData: {
@@ -276,7 +276,7 @@ describe('TransferUseCase', () => {
       mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
       mockPendingTransferService.waitForConfirmation.mockResolvedValue({
         transactionId: 'E2E-456',
-        responseCode: TransferFinalState.DECLINED,
+        responseCode: TransferResponseCode.REJECTED_BY_PROVIDER,
         message: TransferMessage.PAYMENT_DECLINED,
         externalTransactionId: 'E2E-456',
         additionalData: {
@@ -454,7 +454,7 @@ describe('TransferUseCase', () => {
       mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
       mockPendingTransferService.waitForConfirmation.mockResolvedValue({
         transactionId: 'E2E-456',
-        responseCode: TransferFinalState.APPROVED,
+        responseCode: TransferResponseCode.APPROVED,
         message: TransferMessage.PAYMENT_APPROVED,
         externalTransactionId: 'E2E-456',
         additionalData: {
@@ -466,6 +466,69 @@ describe('TransferUseCase', () => {
       await useCase.executeTransfer(mockRequest);
 
       expect(mockLogger.log).toHaveBeenCalledWith('Waiting for transfer confirmation', expect.any(Object));
+    });
+
+    it('should handle KeyResolutionException with technical error message', async () => {
+      const technicalError = new (await import('@core/exception/custom.exceptions')).KeyResolutionException(
+        '3006985750',
+        "Cannot read properties of undefined (reading 'type')",
+        'test-correlation-id'
+      );
+      mockDifeProvider.resolveKey.mockRejectedValue(technicalError);
+
+      const result = await useCase.executeTransfer(mockRequest);
+
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
+      expect(result.networkMessage).toBe('DIFE: Key resolution failed for key 3006985750');
+      expect(result.networkCode).toBeUndefined();
+    });
+
+    it('should handle KeyResolutionException with DIFE code in message', async () => {
+      const difeError = new (await import('@core/exception/custom.exceptions')).KeyResolutionException(
+        '3006985750',
+        'DIFE-4000: Invalid key format',
+        'test-correlation-id'
+      );
+      mockDifeProvider.resolveKey.mockRejectedValue(difeError);
+
+      const result = await useCase.executeTransfer(mockRequest);
+
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
+      expect(result.networkMessage).toContain('DIFE');
+      expect(result.networkMessage).toContain('Invalid key format');
+    });
+
+    it('should handle KeyResolutionException with TypeError in message', async () => {
+      const typeError = new (await import('@core/exception/custom.exceptions')).KeyResolutionException(
+        '3006985750',
+        'TypeError: Cannot read property',
+        'test-correlation-id'
+      );
+      mockDifeProvider.resolveKey.mockRejectedValue(typeError);
+
+      const result = await useCase.executeTransfer(mockRequest);
+
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
+      expect(result.networkMessage).toBe('DIFE: Key resolution failed for key 3006985750');
+      expect(result.networkCode).toBeUndefined();
+    });
+
+    it('should handle KeyResolutionException with generic error message', async () => {
+      const genericError = new (await import('@core/exception/custom.exceptions')).KeyResolutionException(
+        '3006985750',
+        'Unknown error occurred',
+        'test-correlation-id'
+      );
+      mockDifeProvider.resolveKey.mockRejectedValue(genericError);
+
+      const result = await useCase.executeTransfer(mockRequest);
+
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
+      expect(result.networkMessage).toBe('DIFE: Key resolution failed');
     });
   });
 });

@@ -198,6 +198,142 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private createDifeErrorStub(errorCode: string, description: string, keyValue: string): unknown {
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
+    return this.buildStub(
+      '/v1/key/resolve',
+      'POST',
+      {
+        correlation_id: 'test-correlation-id',
+        execution_id: 'dife-execution-id-error',
+        status: 'ERROR',
+        trace_id: 'dife-trace-id-error',
+        errors: [{ code: errorCode, description }]
+      },
+      200,
+      [{ jsonpath: { selector: '$.key.value' }, equals: { body: keyValue } }]
+    );
+  }
+
+  private createDifeSuccessStub(
+    keyValue: string,
+    executionId: string,
+    traceId: string,
+    keyData: {
+      type: string;
+      participant: { nit: string; spbvi: string };
+      payment_method: { type: string; number: string };
+      person: {
+        type: string;
+        identification: { type: string; number: string };
+        name: {
+          first_name: string;
+          second_name?: string;
+          last_name: string;
+          second_last_name?: string;
+        };
+      };
+    }
+  ): unknown {
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
+    return this.buildStub(
+      '/v1/key/resolve',
+      'POST',
+      {
+        execution_id: executionId,
+        correlation_id: 'test-correlation-id',
+        status: 'SUCCESS',
+        trace_id: traceId,
+        key: {
+          key: {
+            type: keyData.type,
+            value: keyValue
+          },
+          participant: keyData.participant,
+          payment_method: keyData.payment_method,
+          person: keyData.person
+        },
+        time_marks: {
+          C110: new Date().toISOString(),
+          C120: new Date().toISOString()
+        }
+      },
+      200,
+      keyValue ? [{ jsonpath: { selector: '$.key.value' }, equals: { body: keyValue } }] : undefined
+    );
+  }
+
+  private createMolErrorStub(errorCode: string, description: string, scenario: string): unknown {
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
+    return this.buildStub(
+      '/v1/payment',
+      'POST',
+      {
+        status: 'ERROR',
+        errors: [{ code: errorCode, description }]
+      },
+      200,
+      [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: scenario } }]
+    );
+  }
+
+  private createMolGenericErrorStub(errorCode: string, description: string, scenario: string): unknown {
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
+    return this.buildStub(
+      '/v1/payment',
+      'POST',
+      {
+        status: 'ERROR',
+        error: { code: errorCode, description, id: `error-id-${errorCode}` }
+      },
+      200,
+      [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: scenario } }]
+    );
+  }
+
+  private createMolSuccessStub(status: string, endToEndId: string, executionId: string, scenario?: string): unknown {
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
+    return this.buildStub(
+      '/v1/payment',
+      'POST',
+      {
+        end_to_end_id: endToEndId,
+        execution_id: executionId,
+        status
+      },
+      200,
+      scenario ? [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: scenario } }] : undefined
+    );
+  }
+
+  private async createImposter(stubs: unknown[], port: number, serviceName: string): Promise<void> {
+    if (!this.manager) {
+      throw new Error('Mountebank no está disponible');
+    }
+    this.logger.log(`   Creando ${serviceName} imposter con ${stubs.length} stubs...`);
+    try {
+      await this.withTimeout(
+        this.manager.createImposter(stubs, port.toString()),
+        15000,
+        `${serviceName} imposter creation on port ${port}`
+      );
+      this.logger.log(`   ${serviceName} imposter configurado en puerto ${port} con ${stubs.length} escenarios`);
+    } catch (error) {
+      this.logger.error(`Error configurando ${serviceName} imposter en puerto ${port}:`, error);
+      throw error;
+    }
+  }
+
   private async setupDifeImposter(): Promise<void> {
     if (!this.buildStub || !this.manager || this.difePort === undefined) {
       throw new Error('Mountebank no está disponible');
@@ -207,75 +343,66 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
     const difeStubs: unknown[] = [];
 
     difeStubs.push(
-      this.buildStub(
-        '/v1/key/resolve',
-        'POST',
-        {
-          correlation_id: 'test-correlation-id',
-          execution_id: 'dife-execution-id-error',
-          status: 'ERROR',
-          trace_id: 'dife-trace-id-error',
-          errors: [
-            {
-              code: 'DIFE-5005',
-              description:
-                'The key.value has an invalid format. Must be an email, can have a minimum of 3 and a maximum of 92 characters and a valid structure.'
-            }
-          ]
-        },
-        200,
-        [{ jsonpath: { selector: '$.key.value' }, equals: { body: 'invalid_key_5005' } }]
+      this.createDifeErrorStub(
+        'DIFE-5005',
+        'The key.value has an invalid format. Must be an email, can have a minimum of 3 and a maximum of 92 characters and a valid structure.',
+        'invalid_key_5005'
+      )
+    );
+
+    difeStubs.push(this.createDifeErrorStub('DIFE-4000', 'Invalid key format', '@INVALIDKEY'));
+
+    difeStubs.push(this.createDifeErrorStub('DIFE-0004', 'The key does not exist or is canceled.', 'key_not_found'));
+
+    difeStubs.push(this.createDifeErrorStub('DIFE-0005', 'The key is suspended by the client.', 'key_suspended'));
+
+    difeStubs.push(
+      this.createDifeErrorStub('DIFE-0006', 'The key is suspended by the participant.', 'key_suspended_participant')
+    );
+
+    difeStubs.push(this.createDifeErrorStub('DIFE-5000', 'Timeout.', 'dife_timeout'));
+
+    difeStubs.push(
+      this.createDifeErrorStub(
+        'DIFE-0001',
+        'The key is already registered with the same financial institution, but with a different account.',
+        'dife_0001'
       )
     );
 
     difeStubs.push(
-      this.buildStub(
-        '/v1/key/resolve',
-        'POST',
-        {
-          correlation_id: 'test-correlation-id',
-          execution_id: 'dife-execution-id-error',
-          status: 'ERROR',
-          trace_id: 'dife-trace-id-error',
-          errors: [{ code: 'DIFE-4000', description: 'Invalid key format' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.key.value' }, equals: { body: '@INVALIDKEY' } }]
+      this.createDifeErrorStub('DIFE-0002', 'The key is already registered with the same account.', 'dife_0002')
+    );
+
+    difeStubs.push(
+      this.createDifeErrorStub(
+        'DIFE-0003',
+        'The key is already registered with another financial institution.',
+        'dife_0003'
       )
     );
 
     difeStubs.push(
-      this.buildStub(
-        '/v1/key/resolve',
-        'POST',
-        {
-          correlation_id: 'test-correlation-id',
-          execution_id: 'dife-execution-id-error',
-          status: 'ERROR',
-          trace_id: 'dife-trace-id-error',
-          errors: [{ code: 'DIFE-0004', description: 'The key does not exist or is canceled.' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.key.value' }, equals: { body: 'key_not_found' } }]
-      )
+      this.createDifeErrorStub('DIFE-0007', 'There are not enough privileges to perform this operation.', 'dife_0007')
     );
+
+    difeStubs.push(this.createDifeErrorStub('DIFE-0008', 'An unexpected error occurred in the DICE API', 'dife_0008'));
 
     difeStubs.push(
-      this.buildStub(
-        '/v1/key/resolve',
-        'POST',
-        {
-          correlation_id: 'test-correlation-id',
-          execution_id: 'dife-execution-id-error',
-          status: 'ERROR',
-          trace_id: 'dife-trace-id-error',
-          errors: [{ code: 'DIFE-0005', description: 'The key is suspended by the client.' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.key.value' }, equals: { body: 'key_suspended' } }]
+      this.createDifeErrorStub(
+        'DIFE-5001',
+        'Another request is already processing this payload (duplication).',
+        'dife_5001'
       )
     );
 
+    difeStubs.push(this.createDifeErrorStub('DIFE-5003', 'The participant does not exist.', 'dife_5003'));
+
+    difeStubs.push(this.createDifeErrorStub('DIFE-9999', 'An unexpected error occurred.', 'dife_9999'));
+
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
     difeStubs.push(
       this.buildStub(
         '/v1/key/resolve',
@@ -289,79 +416,68 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
     );
 
     difeStubs.push(
-      this.buildStub(
-        '/v1/key/resolve',
-        'POST',
+      this.createDifeSuccessStub(
+        '@TIMEOUT',
+        'c090c73be331b56150e6c1f012a81387d0234ab44760549de678be19f9f2514a',
+        'dife-trace-id-timeout',
         {
-          execution_id: 'c090c73be331b56150e6c1f012a81387d0234ab44760549de678be19f9f2514a',
-          correlation_id: 'test-correlation-id',
-          status: 'SUCCESS',
-          trace_id: 'dife-trace-id-timeout',
-          key: {
-            key: {
-              type: 'O',
-              value: '@TIMEOUT'
-            },
-            participant: {
-              nit: '12345678',
-              spbvi: 'CRB'
-            },
-            payment_method: {
-              type: 'CAHO',
-              number: '123456337031'
-            },
-            person: {
-              type: 'N',
-              identification: {
-                type: 'CC',
-                number: '17184719'
-              },
-              name: {
-                first_name: 'Pablo',
-                second_name: 'Javier',
-                last_name: 'Benitez',
-                second_last_name: 'Morales'
-              }
+          type: 'O',
+          participant: { nit: '12345678', spbvi: 'CRB' },
+          payment_method: { type: 'CAHO', number: '123456337031' },
+          person: {
+            type: 'N',
+            identification: { type: 'CC', number: '17184719' },
+            name: {
+              first_name: 'Pablo',
+              second_name: 'Javier',
+              last_name: 'Benitez',
+              second_last_name: 'Morales'
             }
-          },
-          time_marks: {
-            C110: new Date().toISOString(),
-            C120: new Date().toISOString()
           }
-        },
-        200,
-        [{ jsonpath: { selector: '$.key.value' }, equals: { body: '@TIMEOUT' } }]
+        }
       )
     );
 
+    difeStubs.push(
+      this.createDifeSuccessStub('@COLOMBIA', 'dife-execution-id-mock', 'dife-trace-id-mock', {
+        type: 'O',
+        participant: { nit: '12345678', spbvi: 'CRB' },
+        payment_method: { type: 'CAHO', number: '1234567890123' },
+        person: {
+          type: 'N',
+          identification: { type: 'CC', number: '123143455' },
+          name: {
+            first_name: 'Juan',
+            second_name: 'Carlos',
+            last_name: 'Pérez',
+            second_last_name: 'Gómez'
+          }
+        }
+      })
+    );
+
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
     difeStubs.push(
       this.buildStub(
         '/v1/key/resolve',
         'POST',
         {
-          execution_id: 'dife-execution-id-mock',
+          execution_id: 'dife-execution-id-default',
           correlation_id: 'test-correlation-id',
           status: 'SUCCESS',
-          trace_id: 'dife-trace-id-mock',
+          trace_id: 'dife-trace-id-default',
           key: {
             key: {
               type: 'O',
-              value: '@COLOMBIA'
+              value: 'default-key'
             },
-            participant: {
-              nit: '12345678',
-              spbvi: 'CRB'
-            },
-            payment_method: {
-              type: 'CAHO',
-              number: '1234567890123'
-            },
+            participant: { nit: '12345678', spbvi: 'CRB' },
+            payment_method: { type: 'CAHO', number: '1234567890123' },
             person: {
               type: 'N',
-              identification: {
-                type: 'CC',
-                number: '123143455'
-              },
+              identification: { type: 'CC', number: '123143455' },
               name: {
                 first_name: 'Juan',
                 second_name: 'Carlos',
@@ -379,18 +495,7 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
       )
     );
 
-    this.logger.log(`   Creando DIFE imposter con ${difeStubs.length} stubs...`);
-    try {
-      await this.withTimeout(
-        this.manager.createImposter(difeStubs, this.difePort.toString()),
-        15000,
-        `DIFE imposter creation on port ${this.difePort}`
-      );
-      this.logger.log(`   DIFE imposter configurado en puerto ${this.difePort} con ${difeStubs.length} escenarios`);
-    } catch (error) {
-      this.logger.error(`Error configurando DIFE imposter en puerto ${this.difePort}:`, error);
-      throw error;
-    }
+    await this.createImposter(difeStubs, this.difePort, 'DIFE');
   }
 
   private async setupMolImposter(): Promise<void> {
@@ -401,208 +506,67 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
 
     const paymentStubs: unknown[] = [];
 
+    paymentStubs.push(this.createMolErrorStub('MOL-4017', 'Time-out declared by MOL', 'timeout_4017'));
+
+    paymentStubs.push(this.createMolErrorStub('MOL-4019', 'Timeout with the account owner bank', 'timeout_4019'));
+
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4017', description: 'Time-out declared by MOL' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'timeout_4017' } }]
+      this.createMolErrorStub(
+        'MOL-5005',
+        'The field creditor.key.type has an invalid format. Must be one of IDENTIFICATION, PHONE, MAIL, ALPHANUMERIC, MERCHANT_CODE, but received MECHANT_CODE',
+        'mol_5005'
+      )
+    );
+
+    paymentStubs.push(this.createMolErrorStub('MOL-4003', 'Inbound bank classifier not found', 'mol_4003'));
+
+    paymentStubs.push(
+      this.createMolErrorStub(
+        'MOL-4006',
+        'Error in the validations of the account of the Financial Consumer Recipient',
+        'mol_4006'
       )
     );
 
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4019', description: 'Timeout with the account owner bank' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'timeout_4019' } }]
-      )
+      this.createMolErrorStub('MOL-4007', 'Invalid account number of the Receiving Client', 'mol_4007')
     );
 
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [
-            {
-              code: 'MOL-5005',
-              description:
-                'The field creditor.key.type has an invalid format. Must be one of IDENTIFICATION, PHONE, MAIL, ALPHANUMERIC, MERCHANT_CODE, but received MECHANT_CODE'
-            }
-          ]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_5005' } }]
-      )
+      this.createMolErrorStub('MOL-4008', 'Incorrect identification of the Receiving Client', 'mol_4008')
     );
 
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4003', description: 'Inbound bank classifier not found' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4003' } }]
-      )
+      this.createMolErrorStub('MOL-4009', 'Payment method type of the Receiving Client is incorrect', 'mol_4009')
+    );
+
+    paymentStubs.push(this.createMolErrorStub('MOL-4010', 'Receiving Client account does not exist', 'mol_4010'));
+
+    paymentStubs.push(this.createMolErrorStub('MOL-4011', 'Risk control due to suspicion of fraud', 'mol_4011'));
+
+    paymentStubs.push(
+      this.createMolErrorStub('MOL-4012', 'Exceeds the maximum amount for low-value deposits', 'mol_4012')
     );
 
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4007', description: 'Invalid account number of the Receiving Client' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4007' } }]
-      )
+      this.createMolErrorStub('MOL-4013', 'Exceeds the maximum amount of the payment network', 'mol_4013')
     );
 
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4008', description: 'Incorrect identification of the Receiving Client' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4008' } }]
-      )
+      this.createMolErrorStub('MOL-4014', 'Exceeds the maximum amount of the Receiving Participant', 'mol_4014')
     );
+
+    paymentStubs.push(this.createMolGenericErrorStub('400', 'Validation failed', 'validation_error'));
+
+    paymentStubs.push(this.createMolGenericErrorStub('403', 'The participant id is inactive.', 'rejected'));
 
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4009', description: 'Payment method type of the Receiving Client is incorrect' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4009' } }]
-      )
+      this.createMolSuccessStub('PENDING', 'mol-end-to-end-id-processing', 'mol-execution-id-processing', 'processing')
     );
 
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4010', description: 'Receiving Client account does not exist' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4010' } }]
-      )
-    );
-
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4011', description: 'Risk control due to suspicion of fraud' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4011' } }]
-      )
-    );
-
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4012', description: 'Exceeds the maximum amount for low-value deposits' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4012' } }]
-      )
-    );
-
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4013', description: 'Exceeds the maximum amount of the payment network' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4013' } }]
-      )
-    );
-
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          errors: [{ code: 'MOL-4014', description: 'Exceeds the maximum amount of the Receiving Participant' }]
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'mol_4014' } }]
-      )
-    );
-
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          error: { code: '400', description: 'Validation failed', id: 'error-id-400' }
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'validation_error' } }]
-      )
-    );
-
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          status: 'ERROR',
-          error: { code: '403', description: 'The participant id is inactive.', id: 'error-id-403' }
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'rejected' } }]
-      )
-    );
-
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          end_to_end_id: 'mol-end-to-end-id-processing',
-          execution_id: 'mol-execution-id-processing',
-          status: 'PENDING'
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'processing' } }]
-      )
-    );
-
+    if (!this.buildStub) {
+      throw new Error('Mountebank no está disponible');
+    }
     paymentStubs.push(
       this.buildStub(
         '/v1/payment',
@@ -616,31 +580,15 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
     );
 
     paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          end_to_end_id: '20251209830513238CRB001765342459806',
-          execution_id: '202512090BANKCRB000e396bbdd82',
-          status: 'PROCESSING'
-        },
-        200,
-        [{ jsonpath: { selector: '$.additional_informations' }, equals: { body: 'timeout_pending' } }]
+      this.createMolSuccessStub(
+        'PROCESSING',
+        '20251209830513238CRB001765342459806',
+        '202512090BANKCRB000e396bbdd82',
+        'timeout_pending'
       )
     );
 
-    paymentStubs.push(
-      this.buildStub(
-        '/v1/payment',
-        'POST',
-        {
-          end_to_end_id: 'mol-end-to-end-id-mock',
-          execution_id: 'mol-execution-id-mock',
-          status: 'PROCESSING'
-        },
-        200
-      )
-    );
+    paymentStubs.push(this.createMolSuccessStub('PROCESSING', 'mol-end-to-end-id-mock', 'mol-execution-id-mock'));
 
     const queryStubs: unknown[] = [];
 
@@ -708,16 +656,6 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `   Creando MOL imposter con ${paymentStubs.length} payment stubs y ${queryStubs.length} query stubs...`
     );
-    try {
-      await this.withTimeout(
-        this.manager.createImposter([...paymentStubs, ...queryStubs], this.molPort.toString()),
-        15000,
-        `MOL imposter creation on port ${this.molPort}`
-      );
-      this.logger.log(`   MOL imposter configurado en puerto ${this.molPort} con ${paymentStubs.length} escenarios`);
-    } catch (error) {
-      this.logger.error(`Error configurando MOL imposter en puerto ${this.molPort}:`, error);
-      throw error;
-    }
+    await this.createImposter([...paymentStubs, ...queryStubs], this.molPort, 'MOL');
   }
 }

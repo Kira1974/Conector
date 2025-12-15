@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
-import { TransferFinalState } from '@core/constant';
 import { AdditionalDataKey, ConfirmationResponse } from '@core/model';
 import { TransferConfirmationDto } from '@infrastructure/entrypoint/dto/transfer-confirmation.dto';
+import { TransferResponseCode } from '@infrastructure/entrypoint/dto';
+import { TransferMessage } from '@core/constant';
+import { ErrorMessageMapper } from '@core/util/error-message.mapper';
+import { determineResponseCodeFromMessage } from '@core/util/transfer-validation.util';
 
 import { PendingTransferService } from './pending-transfer.service';
 
@@ -26,19 +29,23 @@ export class ConfirmationUseCase {
     const endToEndId = notification.payload.payload.end_to_end_id;
     const executionId = notification.payload.payload.execution_id;
     const settlementStatus = notification.payload.payload.status;
-    const traceId = notification.payload.properties.trace_id || endToEndId;
+    const transactionId = this.pendingTransferService.getTransactionIdByEndToEndId(endToEndId) || endToEndId;
+    const eventId = transactionId;
+    const traceId = transactionId;
+    const correlationId = endToEndId;
 
-    this.logger.log('CONFIRM Request', {
-      eventId: endToEndId,
-      correlationId: endToEndId,
-      transactionId: endToEndId,
+    this.logger.log('NETWORK_REQUEST WEBHOOK', {
+      eventId,
+      traceId,
+      correlationId,
+      transactionId,
+      endToEndId,
       notificationId: notification.id,
       source: notification.source,
       externalTransactionId: endToEndId,
       executionId,
       settlementStatus,
       eventName: notification.payload.event_name,
-      traceId,
       requestBody: JSON.stringify(notification, null, 2)
     });
 
@@ -48,9 +55,10 @@ export class ConfirmationUseCase {
 
     if (!finalState) {
       this.logger.warn('Unknown settlement status received', {
-        eventId: endToEndId,
-        correlationId: endToEndId,
-        transactionId: endToEndId,
+        eventId,
+        traceId,
+        correlationId,
+        transactionId,
         endToEndId,
         settlementStatus,
         notificationId: notification.id
@@ -61,14 +69,19 @@ export class ConfirmationUseCase {
       return confirmationResponse;
     }
 
-    confirmationResponse = this.buildSuccessResponse(endToEndId, executionId, finalState);
+    if (settlementStatus.toUpperCase() === 'ERROR' && notification.payload.payload.errors) {
+      confirmationResponse = this.buildErrorResponse(notification);
+    } else {
+      confirmationResponse = this.buildSuccessResponse(endToEndId, executionId, finalState);
+    }
     const resolved = this.pendingTransferService.resolveConfirmation(endToEndId, confirmationResponse, 'webhook');
 
     if (!resolved) {
       this.logger.warn('Confirmation for unknown or expired transfer', {
-        eventId: endToEndId,
-        correlationId: endToEndId,
-        transactionId: endToEndId,
+        eventId,
+        traceId,
+        correlationId,
+        transactionId,
         endToEndId,
         finalState,
         settlementStatus,
@@ -79,9 +92,10 @@ export class ConfirmationUseCase {
     }
 
     this.logger.log('Transfer confirmation processed successfully', {
-      eventId: endToEndId,
-      correlationId: endToEndId,
-      transactionId: endToEndId,
+      eventId,
+      traceId,
+      correlationId,
+      transactionId,
       endToEndId,
       executionId,
       finalState,
@@ -91,15 +105,16 @@ export class ConfirmationUseCase {
     return confirmationResponse;
   }
 
-  private mapSettlementStatusToFinalState(status: string): TransferFinalState | null {
+  private mapSettlementStatusToFinalState(status: string): TransferResponseCode | null {
     const statusUpper = status.toUpperCase();
 
     switch (statusUpper) {
       case 'SUCCESS':
       case 'SETTLED':
-        return TransferFinalState.APPROVED;
+        return TransferResponseCode.APPROVED;
       case 'REJECTED':
-        return TransferFinalState.DECLINED;
+      case 'ERROR':
+        return TransferResponseCode.REJECTED_BY_PROVIDER;
       default:
         return null;
     }
@@ -108,12 +123,12 @@ export class ConfirmationUseCase {
   private buildSuccessResponse(
     endToEndId: string,
     executionId: string,
-    finalState: TransferFinalState
+    finalState: TransferResponseCode
   ): ConfirmationResponse {
     return {
       transactionId: endToEndId,
       responseCode: finalState,
-      message: finalState === TransferFinalState.APPROVED ? 'Payment approved' : 'Payment declined',
+      message: finalState === TransferResponseCode.APPROVED ? 'Payment approved' : 'Payment declined',
       externalTransactionId: endToEndId,
       additionalData: {
         [AdditionalDataKey.END_TO_END]: endToEndId,
@@ -127,15 +142,42 @@ export class ConfirmationUseCase {
     const executionId = notification.payload.payload.execution_id;
     const errors = notification.payload.payload.errors;
 
-    let errorMessage = 'Unknown settlement status';
+    let networkMessage: string | undefined;
+    let networkCode: string | undefined;
+    let mappedMessage: TransferMessage = TransferMessage.PAYMENT_DECLINED;
+
     if (errors && errors.length > 0) {
-      errorMessage = errors.map((err) => `${err.code}: ${err.description}`).join(', ');
+      const firstError = errors[0];
+      networkCode = firstError.code;
+      networkMessage = firstError.description;
+
+      const errorInfo = {
+        code: networkCode,
+        description: networkMessage,
+        source: 'MOL' as const
+      };
+
+      mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+      const responseCode = determineResponseCodeFromMessage(mappedMessage);
+
+      return {
+        transactionId: endToEndId,
+        responseCode,
+        message: mappedMessage,
+        externalTransactionId: endToEndId,
+        networkMessage: ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'MOL'),
+        networkCode,
+        additionalData: {
+          [AdditionalDataKey.END_TO_END]: endToEndId,
+          [AdditionalDataKey.EXECUTION_ID]: executionId
+        }
+      };
     }
 
     return {
       transactionId: endToEndId,
-      responseCode: TransferFinalState.ERROR,
-      message: errorMessage,
+      responseCode: TransferResponseCode.ERROR,
+      message: 'Unknown settlement status',
       externalTransactionId: endToEndId,
       additionalData: {
         [AdditionalDataKey.END_TO_END]: endToEndId,
@@ -147,7 +189,7 @@ export class ConfirmationUseCase {
   private buildNotFoundResponse(endToEndId: string, executionId: string): ConfirmationResponse {
     return {
       transactionId: endToEndId,
-      responseCode: TransferFinalState.PENDING,
+      responseCode: TransferResponseCode.PENDING,
       message: 'Payment pending',
       externalTransactionId: endToEndId,
       additionalData: {

@@ -1,6 +1,5 @@
 import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer-request.dto';
 import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
-
 import { TransferMessage } from '../constant';
 
 import { calculateKeyType } from './key-type.util';
