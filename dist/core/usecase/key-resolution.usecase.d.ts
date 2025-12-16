@@ -10,5 +10,4 @@ export declare class KeyResolutionUseCase {
     private buildSuccessResponse;
     private buildErrorResponse;
     private handleError;
-    private buildCustomMessage;
 }

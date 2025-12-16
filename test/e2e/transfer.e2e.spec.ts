@@ -232,6 +232,71 @@ describe('Transfer E2E Tests with Mountebank', () => {
 
       expect(response.status).toBeGreaterThanOrEqual(500);
     });
+
+    it('should handle default DIFE response when key does not match any specific stub', async () => {
+      await mountebankHelper.setupOAuthImposter('success');
+      await mountebankHelper.setupDifeImposter('success');
+      await mountebankHelper.setupMolPaymentImposter('success');
+
+      const transferRequest = {
+        transactionId: 'test-transaction-default-key',
+        transaction: {
+          amount: {
+            value: 100.0,
+            currency: 'COP'
+          },
+          description: 'Test transfer'
+        },
+        transactionParties: {
+          payee: {
+            accountInfo: {
+              value: 'test@test.com'
+            }
+          }
+        },
+        additionalData: {}
+      };
+
+      const endToEndId = 'mol-end-to-end-id-default';
+      const executionId = 'mol-execution-id-default';
+
+      const transferPromise = request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const webhookRequest = {
+        id: 'webhook-id-default',
+        source: 'MOL',
+        status: 'SUCCESS',
+        payload: {
+          event_name: 'payment.settlement',
+          event_type: 'settlement',
+          payload: {
+            execution_id: executionId,
+            end_to_end_id: endToEndId,
+            status: 'SUCCESS'
+          },
+          properties: {
+            event_date: new Date().toISOString(),
+            trace_id: 'trace-id-default'
+          }
+        }
+      };
+
+      const webhookResponse = await request(app.getHttpServer())
+        .post('/api/v1/transfer-confirmation')
+        .send(webhookRequest);
+
+      expect(webhookResponse.status).toBe(200);
+
+      const response = await transferPromise;
+
+      expect(response.status).toBe(200);
+      expect(response.body.transactionId).toBe('test-transaction-default-key');
+      expect(response.body.responseCode).toBeDefined();
+      expect(response.body.message).toBeDefined();
+      expect(response.body.responseCode).toBe('PENDING');
+    }, 60000);
   });
 
   describe('MOL Payment Error Scenarios', () => {

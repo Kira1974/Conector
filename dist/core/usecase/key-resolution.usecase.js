@@ -16,6 +16,7 @@ const themis_1 = require("themis");
 const provider_1 = require("../provider");
 const util_1 = require("../util");
 const custom_exceptions_1 = require("../exception/custom.exceptions");
+const error_message_mapper_1 = require("../util/error-message.mapper");
 let KeyResolutionUseCase = KeyResolutionUseCase_1 = class KeyResolutionUseCase {
     constructor(difeProvider, loggerService) {
         this.difeProvider = difeProvider;
@@ -85,17 +86,34 @@ let KeyResolutionUseCase = KeyResolutionUseCase_1 = class KeyResolutionUseCase {
         };
     }
     buildErrorResponse(key, keyType, errorMessage) {
-        const errorCodeMatch = errorMessage.match(/^([A-Z]+-\d+)/);
-        const networkCode = errorCodeMatch ? errorCodeMatch[1] : 'UNKNOWN';
-        const networkMessage = errorCodeMatch ? errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim() : errorMessage;
-        const message = this.buildCustomMessage(networkCode);
+        const errorCodeMatch = errorMessage.match(/\(([A-Z]+-\d{4})\)/) || errorMessage.match(/^([A-Z]+-\d+)/);
+        const networkCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
+        let networkMessage = errorMessage;
+        if (errorCodeMatch) {
+            const descriptionMatch = errorMessage.match(/DIFE API error: (.+?) \([A-Z]+-\d{4}\)/);
+            if (descriptionMatch) {
+                networkMessage = descriptionMatch[1];
+            }
+            else {
+                networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
+            }
+        }
+        const errorInfo = {
+            code: networkCode,
+            description: networkMessage,
+            source: 'DIFE'
+        };
+        const transferMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
+        const formattedNetworkMessage = networkCode
+            ? error_message_mapper_1.ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
+            : networkMessage;
         return {
             key,
             keyType,
             responseCode: 'ERROR',
-            message,
+            message: transferMessage,
             networkCode,
-            networkMessage
+            networkMessage: formattedNetworkMessage
         };
     }
     handleError(error, key) {
@@ -109,17 +127,6 @@ let KeyResolutionUseCase = KeyResolutionUseCase_1 = class KeyResolutionUseCase {
             return this.buildErrorResponse(key, keyType, error.message);
         }
         return this.buildErrorResponse(key, keyType, errorMessage);
-    }
-    buildCustomMessage(networkCode) {
-        const messages = {
-            'DIFE-0001': 'custom message.',
-            'DIFE-0002': 'custom message.',
-            'DIFE-0003': 'custom message.',
-            'DIFE-0004': 'custom message.',
-            'DIFE-5003': 'custom message.',
-            UNKNOWN: 'custom message.'
-        };
-        return messages[networkCode] || messages['UNKNOWN'];
     }
 };
 exports.KeyResolutionUseCase = KeyResolutionUseCase;

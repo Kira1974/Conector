@@ -6,6 +6,7 @@ import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
 import { calculateKeyType, generateCorrelationId, buildAdditionalDataFromKeyResolution } from '@core/util';
 import { KeyResolutionException } from '@core/exception/custom.exceptions';
 import { KeyResolutionResponseDto } from '@infrastructure/entrypoint/dto';
+import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
 
 @Injectable()
 export class KeyResolutionUseCase {
@@ -103,20 +104,36 @@ export class KeyResolutionUseCase {
   }
 
   private buildErrorResponse(key: string, keyType: string, errorMessage: string): KeyResolutionResponseDto {
-    const errorCodeMatch = errorMessage.match(/^([A-Z]+-\d+)/);
-    const networkCode = errorCodeMatch ? errorCodeMatch[1] : 'UNKNOWN';
-    const networkMessage = errorCodeMatch ? errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim() : errorMessage;
+    const errorCodeMatch = errorMessage.match(/\(([A-Z]+-\d{4})\)/) || errorMessage.match(/^([A-Z]+-\d+)/);
+    const networkCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
 
-    // TODO: Move error message mapping to a separate mapper or constant file
-    const message = this.buildCustomMessage(networkCode);
+    let networkMessage = errorMessage;
+    if (errorCodeMatch) {
+      const descriptionMatch = errorMessage.match(/DIFE API error: (.+?) \([A-Z]+-\d{4}\)/);
+      if (descriptionMatch) {
+        networkMessage = descriptionMatch[1];
+      } else {
+        networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
+      }
+    }
+    const errorInfo: NetworkErrorInfo = {
+      code: networkCode,
+      description: networkMessage,
+      source: 'DIFE'
+    };
+
+    const transferMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+    const formattedNetworkMessage = networkCode
+      ? ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
+      : networkMessage;
 
     return {
       key,
       keyType,
       responseCode: 'ERROR',
-      message,
+      message: transferMessage,
       networkCode,
-      networkMessage
+      networkMessage: formattedNetworkMessage
     };
   }
 
@@ -135,19 +152,5 @@ export class KeyResolutionUseCase {
     }
 
     return this.buildErrorResponse(key, keyType, errorMessage);
-  }
-
-  // TODO: Move to a dedicated error message mapper (e.g., dife-error-message.mapper.ts)
-  private buildCustomMessage(networkCode: string): string {
-    const messages: Record<string, string> = {
-      'DIFE-0001': 'custom message.',
-      'DIFE-0002': 'custom message.',
-      'DIFE-0003': 'custom message.',
-      'DIFE-0004': 'custom message.',
-      'DIFE-5003': 'custom message.',
-      UNKNOWN: 'custom message.'
-    };
-
-    return messages[networkCode] || messages['UNKNOWN'];
   }
 }

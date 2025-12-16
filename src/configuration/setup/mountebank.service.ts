@@ -459,41 +459,41 @@ export class MountebankService implements OnModuleInit, OnModuleDestroy {
     if (!this.buildStub) {
       throw new Error('Mountebank no está disponible');
     }
-    difeStubs.push(
-      this.buildStub(
-        '/v1/key/resolve',
-        'POST',
-        {
-          execution_id: 'dife-execution-id-default',
-          correlation_id: 'test-correlation-id',
-          status: 'SUCCESS',
-          trace_id: 'dife-trace-id-default',
+    const defaultStub = this.buildStub(
+      '/v1/key/resolve',
+      'POST',
+      {
+        execution_id: 'dife-execution-id-default',
+        correlation_id: 'test-correlation-id',
+        status: 'SUCCESS',
+        trace_id: 'dife-trace-id-default',
+        key: {
           key: {
-            key: {
-              type: 'O',
-              value: 'default-key'
-            },
-            participant: { nit: '12345678', spbvi: 'CRB' },
-            payment_method: { type: 'CAHO', number: '1234567890123' },
-            person: {
-              type: 'N',
-              identification: { type: 'CC', number: '123143455' },
-              name: {
-                first_name: 'Juan',
-                second_name: 'Carlos',
-                last_name: 'Pérez',
-                second_last_name: 'Gómez'
-              }
-            }
+            type: 'O',
+            value: 'default-key'
           },
-          time_marks: {
-            C110: new Date().toISOString(),
-            C120: new Date().toISOString()
+          participant: { nit: '12345678', spbvi: 'CRB' },
+          payment_method: { type: 'CAHO', number: '1234567890123' },
+          person: {
+            type: 'N',
+            identification: { type: 'CC', number: '123143455' },
+            name: {
+              first_name: 'Juan',
+              second_name: 'Carlos',
+              last_name: 'Pérez',
+              second_last_name: 'Gómez'
+            }
           }
         },
-        200
-      )
+        time_marks: {
+          C110: new Date().toISOString(),
+          C120: new Date().toISOString()
+        }
+      },
+      200
     );
+    difeStubs.push(defaultStub);
+    this.logger.log(`   Agregado stub catch-all para DIFE sin predicados (total: ${difeStubs.length} stubs)`);
 
     await this.createImposter(difeStubs, this.difePort, 'DIFE');
   }

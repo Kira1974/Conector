@@ -62,6 +62,11 @@ export class MountebankHelper {
     await this.manager.createImposter([stub], this.config.difePort.toString());
   }
 
+  async setupDifeImposterWithCustomResponse(responseBody: unknown, statusCode: number = 200): Promise<void> {
+    const stub = this.buildStub('/v1/key/resolve', 'POST', responseBody, statusCode);
+    await this.manager.createImposter([stub], this.config.difePort.toString());
+  }
+
   async setupMolPaymentImposter(
     scenario:
       | 'success'

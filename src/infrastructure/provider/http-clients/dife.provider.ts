@@ -133,6 +133,20 @@ export class DifeProvider {
       }
 
       // Convert provider DTO response to domain model
+      if (!response.data) {
+        this.logger.error('DIFE returned empty response', {
+          correlationId: request.correlationId,
+          key: request.key,
+          status: response.status,
+          headers: response.headers
+        });
+        throw new KeyResolutionException(
+          request.key,
+          'DIFE: Key resolution returned empty response',
+          request.correlationId
+        );
+      }
+
       const responseDto: ResolveKeyResponseDto = response.data;
 
       const domainResult = KeyResolutionMapper.toDomain(responseDto);
@@ -149,12 +163,6 @@ export class DifeProvider {
 
         return domainResult;
       }
-
-      this.logger.log('DIFE key resolved successfully', {
-        correlationId: request.correlationId,
-        responseStatus: response.status,
-        executionId: response.data.execution_id
-      });
 
       return domainResult;
     } catch (error: unknown) {
