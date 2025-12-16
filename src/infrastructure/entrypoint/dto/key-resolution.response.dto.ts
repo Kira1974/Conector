@@ -38,6 +38,10 @@ export class KeyResolutionResponseDto {
   @ApiProperty({ description: 'Network error code', required: false, example: 'DIFE-0001' })
   networkCode?: string;
 
-  @ApiProperty({ description: 'Network error message', required: false })
+  @ApiProperty({
+    description: 'Network error message',
+    required: false,
+    example: 'DIFE: The key does not exist or is canceled'
+  })
   networkMessage?: string;
 }

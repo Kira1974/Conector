@@ -1,17 +1,9 @@
-{"level":"info","message":"[mb:2525] mountebank v2.9.3-sec now taking orders - point your browser to http://localhost:2525/ for help","timestamp":"2025-12-15T22:52:28.126Z"}
-{"level":"info","message":"[mb:2525] GET /imposters","timestamp":"2025-12-15T22:52:28.136Z"}
-{"level":"info","message":"[mb:2525] DELETE /imposters","timestamp":"2025-12-15T22:52:28.148Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2025-12-15T22:52:28.151Z"}
-{"level":"info","message":"[http:4545] Open for business...","timestamp":"2025-12-15T22:52:28.153Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2025-12-15T22:52:28.156Z"}
-{"level":"info","message":"[http:4546] Open for business...","timestamp":"2025-12-15T22:52:28.159Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2025-12-15T22:52:28.162Z"}
-{"level":"info","message":"[http:4547] Open for business...","timestamp":"2025-12-15T22:52:28.164Z"}
-{"level":"info","message":"[http:4545] ::ffff:127.0.0.1:33234 => POST /token?grant_type=client_credentials","timestamp":"2025-12-15T22:52:47.861Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:51638 => POST /v1/key/resolve","timestamp":"2025-12-15T22:52:47.867Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:45814 => POST /v1/key/resolve","timestamp":"2025-12-15T22:53:03.705Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:42330 => POST /v1/key/resolve","timestamp":"2025-12-15T22:53:12.290Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:35916 => POST /v1/key/resolve","timestamp":"2025-12-15T22:53:40.763Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:49882 => POST /v1/key/resolve","timestamp":"2025-12-15T22:56:12.358Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:59682 => POST /v1/key/resolve","timestamp":"2025-12-15T22:57:01.342Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:35980 => POST /v1/key/resolve","timestamp":"2025-12-15T22:57:16.111Z"}
+{"level":"info","message":"[mb:2525] mountebank v2.9.3-sec now taking orders - point your browser to http://localhost:2525/ for help","timestamp":"2025-12-16T21:52:41.431Z"}
+{"level":"info","message":"[mb:2525] GET /imposters","timestamp":"2025-12-16T21:52:41.460Z"}
+{"level":"info","message":"[mb:2525] DELETE /imposters","timestamp":"2025-12-16T21:52:41.489Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2025-12-16T21:52:41.500Z"}
+{"level":"info","message":"[http:4545] Open for business...","timestamp":"2025-12-16T21:52:41.506Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2025-12-16T21:52:41.513Z"}
+{"level":"info","message":"[http:4546] Open for business...","timestamp":"2025-12-16T21:52:41.521Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2025-12-16T21:52:41.528Z"}
+{"level":"info","message":"[http:4547] Open for business...","timestamp":"2025-12-16T21:52:41.534Z"}

@@ -25,7 +25,7 @@ describe('validateKeyFormat', () => {
     });
 
     it('should return invalid when length is greater than 21', () => {
-      const result = validateKeyFormat('@' + 'A'.repeat(21), KeyType.OTHERS);
+      const result = validateKeyFormat(`@${  'A'.repeat(21)}`, KeyType.OTHERS);
       expect(result.isValid).toBe(false);
       expect(result.errorMessage).toBe(
         'Key value must be between 6 and 21 characters for alphanumeric identifier type'
@@ -56,7 +56,7 @@ describe('validateKeyFormat', () => {
     });
 
     it('should return valid for maximum length (21)', () => {
-      const result = validateKeyFormat('@' + 'A'.repeat(20), KeyType.OTHERS);
+      const result = validateKeyFormat(`@${  'A'.repeat(20)}`, KeyType.OTHERS);
       expect(result.isValid).toBe(true);
     });
 
@@ -117,7 +117,7 @@ describe('validateKeyFormat', () => {
     });
 
     it('should return invalid when domain part is too long', () => {
-      const longDomain = 'a'.repeat(62) + '.com';
+      const longDomain = `${'a'.repeat(62)  }.com`;
       const result = validateKeyFormat(`test@${longDomain}`, KeyType.EMAIL);
       expect(result.isValid).toBe(false);
       expect(result.errorMessage).toBe('Email key format is invalid');
@@ -143,7 +143,7 @@ describe('validateKeyFormat', () => {
     });
 
     it('should return valid for maximum domain part length (61)', () => {
-      const domainPart = 'a'.repeat(50) + '.com';
+      const domainPart = `${'a'.repeat(50)  }.com`;
       const result = validateKeyFormat(`test@${domainPart}`, KeyType.EMAIL);
       expect(result.isValid).toBe(true);
     });

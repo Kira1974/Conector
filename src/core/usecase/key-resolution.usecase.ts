@@ -24,13 +24,6 @@ export class KeyResolutionUseCase {
       const keyType = calculateKeyType(key);
       const correlationId = generateCorrelationId();
 
-      // TODO: Improve logging structure and add obfuscation
-      this.logger.log('Retrieving key information', {
-        correlationId,
-        keyType,
-        keyLength: key.length
-      });
-
       const request: KeyResolutionRequest = {
         correlationId,
         key,
@@ -41,36 +34,18 @@ export class KeyResolutionUseCase {
 
       if (keyResolution.errors && keyResolution.errors.length > 0) {
         const errorMessage = keyResolution.errors.join(', ');
-
-        // TODO: Improve error logging
-        this.logger.warn('DIFE returned errors', {
-          correlationId,
-          errors: keyResolution.errors
-        });
-
-        return this.buildErrorResponse(key, keyType, errorMessage);
+        return this.buildErrorResponse(key, keyType, errorMessage, keyResolution);
       }
 
       if (!keyResolution.resolvedKey) {
-        // TODO: Improve error logging
-        this.logger.error('Key information response missing resolvedKey', {
-          correlationId
+        this.logger.error('Key resolution failed - Missing resolvedKey', {
+          correlationId: keyResolution.correlationId || correlationId
         });
 
-        return this.buildErrorResponse(key, keyType, 'Key resolution failed');
+        return this.buildErrorResponse(key, keyType, 'Key resolution failed', keyResolution);
       }
 
-      const response = this.buildSuccessResponse(key, keyType, keyResolution);
-
-      // TODO: Improve success logging
-      this.logger.log('Key information retrieved successfully', {
-        correlationId,
-        documentType: response.documentType,
-        accountType: response.accountType,
-        personType: response.personType
-      });
-
-      return response;
+      return this.buildSuccessResponse(key, keyType, keyResolution);
     } catch (error: unknown) {
       return this.handleError(error, key);
     }
@@ -103,7 +78,12 @@ export class KeyResolutionUseCase {
     };
   }
 
-  private buildErrorResponse(key: string, keyType: string, errorMessage: string): KeyResolutionResponseDto {
+  private buildErrorResponse(
+    key: string,
+    keyType: string,
+    errorMessage: string,
+    keyResolution?: KeyResolutionResponse
+  ): KeyResolutionResponseDto {
     const errorCodeMatch = errorMessage.match(/\(([A-Z]+-\d{4})\)/) || errorMessage.match(/^([A-Z]+-\d+)/);
     const networkCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
 
@@ -116,6 +96,7 @@ export class KeyResolutionUseCase {
         networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
       }
     }
+
     const errorInfo: NetworkErrorInfo = {
       code: networkCode,
       description: networkMessage,
@@ -141,10 +122,9 @@ export class KeyResolutionUseCase {
     const keyType = calculateKeyType(key);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
-    // TODO: Improve error logging
-    this.logger.error('Key information retrieval failed', {
-      key: `${key.substring(0, 5)}***`,
-      error: errorMessage
+    this.logger.error('Key resolution failed', {
+      error: errorMessage,
+      errorType: error instanceof Error ? error.constructor.name : 'Unknown'
     });
 
     if (error instanceof KeyResolutionException) {
