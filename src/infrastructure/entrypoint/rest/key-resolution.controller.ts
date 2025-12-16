@@ -79,32 +79,6 @@ export class KeyResolutionController {
     description: 'Internal server error'
   })
   async getKeyInformation(@Param('key') key: string): Promise<KeyResolutionResponseDto> {
-
-    const obfuscatedKey = this.obfuscateKeyForLogs(key);
-
-    this.logger.log('CHARON_KEY_RESOLUTION Request', {
-      method: 'GET',
-      key: obfuscatedKey,
-      keyType: calculateKeyType(key)
-    });
-
-    const responseDto = await this.keyResolutionUseCase.execute(key);
-
-    this.logger.log('CHARON_KEY_RESOLUTION Response', {
-      status: HttpStatus.OK,
-      responseCode: responseDto.responseCode,
-      keyType: responseDto.keyType,
-      key: obfuscatedKey
-    });
-
-    return responseDto;
-  }
-
-  private obfuscateKeyForLogs(key: string): string {
-    if (!key || key.length <= 5) {
-      return '***';
-    }
-    const prefix = key.slice(0, 5);
-    return `${prefix}***`;
+    return this.keyResolutionUseCase.execute(key);
   }
 }

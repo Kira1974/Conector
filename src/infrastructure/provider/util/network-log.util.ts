@@ -15,7 +15,7 @@ export interface NetworkRequestLogOptions {
   transactionId?: string;
   url: string;
   method: string;
-  requestBody?: unknown; //can be object
+  requestBody?: string;
   headers?: Record<string, string>;
   enableHttpHeadersLog?: boolean;
 }
@@ -26,14 +26,13 @@ export function buildNetworkResponseLog<T>(
 ): Record<string, unknown> {
   const log: Record<string, unknown> = {
     status: response.status,
-    responseBody: response.data, 
+    responseBody: JSON.stringify(response.data, null, 2),
     eventId: options.eventId,
     traceId: options.traceId,
     correlationId: options.correlationId
   };
 
-  // Only add transactionId if it's provided and different from eventId
-  if (options.transactionId && options.transactionId !== options.eventId) {
+  if (options.transactionId) {
     log.transactionId = options.transactionId;
   }
 
@@ -53,21 +52,12 @@ export function buildNetworkRequestLog(options: NetworkRequestLogOptions): Recor
     correlationId: options.correlationId
   };
 
-  // Only add transactionId if it's provided and different from eventId
-  if (options.transactionId && options.transactionId !== options.eventId) {
+  if (options.transactionId) {
     log.transactionId = options.transactionId;
   }
 
-  if (options.requestBody !== undefined) {
-    if (typeof options.requestBody === 'string') {
-      try {
-        log.requestBody = JSON.parse(options.requestBody);
-      } catch {
-        log.requestBody = options.requestBody;
-      }
-    } else {
-      log.requestBody = options.requestBody;
-    }
+  if (options.requestBody) {
+    log.requestBody = options.requestBody;
   }
 
   if (options.enableHttpHeadersLog && options.headers) {
