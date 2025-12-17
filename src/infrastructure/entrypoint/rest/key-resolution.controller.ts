@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
 import { KeyResolutionUseCase } from '@core/usecase';
-import { generateCorrelationId, calculateKeyType } from '@core/util';
+import { calculateKeyType } from '@core/util';
 
 import { KeyResolutionResponseDto } from '../dto';
 
@@ -65,7 +65,7 @@ export class KeyResolutionController {
           message: 'custom message.',
           networkCode: 'DIFE-5005',
           networkMessage:
-            'DIFE: The key.value has an invalid format. Must be an email, can have a minimum of 3 and a maximum of 92 characters and a valid structure.'
+            'The key.value has an invalid format. Must be an email, can have a minimum of 3 and a maximum of 92 characters and a valid structure.'
         }
       }
     }
@@ -79,6 +79,20 @@ export class KeyResolutionController {
     description: 'Internal server error'
   })
   async getKeyInformation(@Param('key') key: string): Promise<KeyResolutionResponseDto> {
-    return this.keyResolutionUseCase.execute(key);
+    this.logger.log('KEY_RESOLUTION Request', {
+      method: 'GET',
+      KeyType: calculateKeyType(key),
+      requestParams: JSON.stringify({ key }, null, 2)
+    });
+
+    const response = await this.keyResolutionUseCase.execute(key);
+
+    this.logger.log('KEY_RESOLUTION Response', {
+      status: 200,
+      responseCode: response.responseCode,
+      responseBody: JSON.stringify(response, null, 2)
+    });
+
+    return response;
   }
 }

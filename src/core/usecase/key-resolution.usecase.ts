@@ -34,16 +34,27 @@ export class KeyResolutionUseCase {
 
       if (keyResolution.errors && keyResolution.errors.length > 0) {
         const errorMessage = keyResolution.errors.join(', ');
-        return this.buildErrorResponse(key, keyType, errorMessage, keyResolution);
+
+        this.logger.warn('Key resolution returned errors', {
+          difeCorrelationId: keyResolution.correlationId || correlationId,
+          errorCount: keyResolution.errors.length
+        });
+
+        return this.buildErrorResponse(key, keyType, errorMessage);
       }
 
       if (!keyResolution.resolvedKey) {
-        this.logger.error('Key resolution failed - Missing resolvedKey', {
-          correlationId: keyResolution.correlationId || correlationId
+        this.logger.error('Key resolution failed', {
+          difeCorrelationId: keyResolution.correlationId || correlationId
         });
 
-        return this.buildErrorResponse(key, keyType, 'Key resolution failed', keyResolution);
+        return this.buildErrorResponse(key, keyType, 'Key resolution failed');
       }
+
+      this.logger.log('Key resolved successfully', {
+        difeCorrelationId: keyResolution.correlationId || correlationId,
+        difeExecutionId: keyResolution.executionId
+      });
 
       return this.buildSuccessResponse(key, keyType, keyResolution);
     } catch (error: unknown) {
@@ -78,12 +89,7 @@ export class KeyResolutionUseCase {
     };
   }
 
-  private buildErrorResponse(
-    key: string,
-    keyType: string,
-    errorMessage: string,
-    keyResolution?: KeyResolutionResponse
-  ): KeyResolutionResponseDto {
+  private buildErrorResponse(key: string, keyType: string, errorMessage: string): KeyResolutionResponseDto {
     const errorCodeMatch = errorMessage.match(/\(([A-Z]+-\d{4})\)/) || errorMessage.match(/^([A-Z]+-\d+)/);
     const networkCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
 
@@ -96,7 +102,6 @@ export class KeyResolutionUseCase {
         networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
       }
     }
-
     const errorInfo: NetworkErrorInfo = {
       code: networkCode,
       description: networkMessage,
