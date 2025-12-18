@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThLoggerService } from 'themis';
 
 import { KeyResolutionController } from '@infrastructure/entrypoint/rest/key-resolution.controller';
 import { KeyResolutionUseCase } from '@core/usecase/key-resolution.usecase';
@@ -7,6 +8,20 @@ import { KeyResolutionResponseDto } from '@infrastructure/entrypoint/dto';
 describe('KeyResolutionController', () => {
   let controller: KeyResolutionController;
   let mockKeyResolutionUseCase: jest.Mocked<KeyResolutionUseCase>;
+
+  const mockLogger = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    setContext: jest.fn(),
+    setLogLevel: jest.fn()
+  };
+
+  const mockLoggerService = {
+    getLogger: jest.fn().mockReturnValue(mockLogger)
+  };
 
   beforeEach(async () => {
     mockKeyResolutionUseCase = {
@@ -19,6 +34,10 @@ describe('KeyResolutionController', () => {
         {
           provide: KeyResolutionUseCase,
           useValue: mockKeyResolutionUseCase
+        },
+        {
+          provide: ThLoggerService,
+          useValue: mockLoggerService
         }
       ]
     }).compile();

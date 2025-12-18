@@ -388,6 +388,20 @@ Set the `accountInfo.value` field in your request to trigger specific DIFE error
 
 **Important:** The `accountInfo.value` must be exactly one of the scenario names below (case-sensitive). If it doesn't match any scenario, Mountebank will return a successful key resolution by default.
 
+**DIFE success scenarios:**
+
+| Key | Type | Person | Account | Description |
+|-----|------|--------|---------|-------------|
+| `@COLOMBIA` | O (Alphanumeric) | N (Natural) | CAHO | Basic alphanumeric key - Person Natural with savings account |
+| `@TIMEOUT` | O (Alphanumeric) | N (Natural) | CAHO | Timeout testing scenario |
+| `3001234567` | M (Mobile) | N (Natural) | CAHO | Mobile number - 10 digits starting with 3 |
+| `TEST@EXAMPLE.COM` | E (Email) | N (Natural) | CCTE | Email key - Checking account |
+| `0012345678` | B (Business Code) | L (Legal) | CCTE | Business code - Legal person (company) |
+| `1234567890` | NRIC (ID Number) | N (Natural) | DBMO | Identification number - Low amount deposit |
+| `@CORRIENTE` | O (Alphanumeric) | N (Natural) | CCTE | Alphanumeric - Checking account |
+| `INCLUSIVO@BANCO.COM` | E (Email) | N (Natural) | DBMI | Email - Inclusive low amount deposit |
+| `3209876543` | M (Mobile) | N (Natural) | DORD | Mobile - Ordinary deposit with Transfiya |
+
 **Available DIFE error scenarios:**
 - `@TIMEOUT` - Key resolution for timeout scenario (returns specific execution_id: `c090c73be331b56150e6c1f012a81387d0234ab44760549de678be19f9f2514a`)
 - `invalid_key_5005` - DIFE-5005: Invalid key format (email validation)
