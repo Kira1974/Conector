@@ -1,4 +1,4 @@
-export interface CredibancoApiResponse {
+export interface MolPaymentResponse {
   status?: string;
   code?: string;
   message?: string;

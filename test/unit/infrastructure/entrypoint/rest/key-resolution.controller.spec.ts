@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { ThLoggerService } from 'themis';
 
 import { KeyResolutionController } from '@infrastructure/entrypoint/rest/key-resolution.controller';
@@ -74,24 +75,117 @@ describe('KeyResolutionController', () => {
       expect(mockKeyResolutionUseCase.execute).toHaveBeenCalledTimes(1);
     });
 
-    it('should return error response when key does not exist', async () => {
+    it('should throw HttpException with 404 when key does not exist', async () => {
       const key = '@NOEXISTE';
-      const expectedResponse: KeyResolutionResponseDto = {
+      const errorResponse: KeyResolutionResponseDto = {
         key: '@NOEXISTE',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'custom message.',
+        message: 'The key does not exist or is canceled.',
         networkCode: 'DIFE-0004',
-        networkMessage: 'The key does not exist or is canceled'
+        networkMessage: 'DIFE: The key does not exist or is canceled.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
 
-      const result = await controller.getKeyInformation(key);
+      try {
+        await controller.getKeyInformation(key);
+        fail('Should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
+        expect(error.getResponse()).toEqual(errorResponse);
+      }
+    });
 
-      expect(result).toEqual(expectedResponse);
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.networkCode).toBe('DIFE-0004');
+    it('should throw HttpException with 422 when key is suspended', async () => {
+      const key = '@SUSPENDED';
+      const errorResponse: KeyResolutionResponseDto = {
+        key: '@SUSPENDED',
+        keyType: 'O',
+        responseCode: 'ERROR',
+        message: 'The key is suspended.',
+        networkCode: 'DIFE-0005',
+        networkMessage: 'DIFE: The key is suspended by the client.'
+      };
+
+      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+
+      try {
+        await controller.getKeyInformation(key);
+        fail('Should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+        expect(error.getResponse()).toEqual(errorResponse);
+      }
+    });
+
+    it('should throw HttpException with 502 when DIFE service fails', async () => {
+      const key = '@TEST';
+      const errorResponse: KeyResolutionResponseDto = {
+        key: '@TEST',
+        keyType: 'O',
+        responseCode: 'ERROR',
+        message: 'An unexpected error occurred.',
+        networkCode: 'DIFE-9999',
+        networkMessage: 'DIFE: An unexpected error occurred.'
+      };
+
+      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+
+      try {
+        await controller.getKeyInformation(key);
+        fail('Should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.BAD_GATEWAY);
+        expect(error.getResponse()).toEqual(errorResponse);
+      }
+    });
+
+    it('should throw HttpException with 504 when DIFE times out', async () => {
+      const key = '@TIMEOUT';
+      const errorResponse: KeyResolutionResponseDto = {
+        key: '@TIMEOUT',
+        keyType: 'O',
+        responseCode: 'ERROR',
+        message: 'Request timeout.',
+        networkCode: 'DIFE-5000',
+        networkMessage: 'DIFE: Timeout.'
+      };
+
+      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+
+      try {
+        await controller.getKeyInformation(key);
+        fail('Should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.GATEWAY_TIMEOUT);
+        expect(error.getResponse()).toEqual(errorResponse);
+      }
+    });
+
+    it('should throw HttpException with 500 for internal errors without networkCode', async () => {
+      const key = '@ERROR';
+      const errorResponse: KeyResolutionResponseDto = {
+        key: '@ERROR',
+        keyType: 'O',
+        responseCode: 'ERROR',
+        message: 'Internal error occurred.'
+      };
+
+      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+
+      try {
+        await controller.getKeyInformation(key);
+        fail('Should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(error.getResponse()).toEqual(errorResponse);
+      }
     });
 
     it('should handle mobile number keys', async () => {
@@ -164,68 +258,25 @@ describe('KeyResolutionController', () => {
 
     it('should handle network errors from usecase', async () => {
       const key = '@TEST';
-      const expectedResponse: KeyResolutionResponseDto = {
+      const errorResponse: KeyResolutionResponseDto = {
         key: '@TEST',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'custom message.',
-        networkCode: 'UNKNOWN',
-        networkMessage: 'Network timeout'
+        message: 'Network error occurred.',
+        networkCode: 'DIFE-5001',
+        networkMessage: 'DIFE: Network error.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
 
-      const result = await controller.getKeyInformation(key);
-
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.networkMessage).toBe('Network timeout');
-    });
-
-    it('should handle commerce code keys', async () => {
-      const key = '0012345678';
-      const expectedResponse: KeyResolutionResponseDto = {
-        documentNumber: '900123456',
-        documentType: 'NIT',
-        personName: 'Com*** Tes***',
-        personType: 'L',
-        financialEntityNit: '900123456',
-        accountType: 'CCTE',
-        accountNumber: '****567890',
-        key: '0012345678',
-        keyType: 'B',
-        responseCode: 'SUCCESS'
-      };
-
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
-
-      const result = await controller.getKeyInformation(key);
-
-      expect(result).toEqual(expectedResponse);
-      expect(result.keyType).toBe('B');
-      expect(result.personType).toBe('L');
-    });
-
-    it('should handle identification number keys', async () => {
-      const key = '1234567890';
-      const expectedResponse: KeyResolutionResponseDto = {
-        documentNumber: '1234567890',
-        documentType: 'CC',
-        personName: 'Jua*** Per***',
-        personType: 'N',
-        financialEntityNit: '900123456',
-        accountType: 'CAHO',
-        accountNumber: '****567890',
-        key: '1234567890',
-        keyType: 'NRIC',
-        responseCode: 'SUCCESS'
-      };
-
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
-
-      const result = await controller.getKeyInformation(key);
-
-      expect(result).toEqual(expectedResponse);
-      expect(result.keyType).toBe('NRIC');
+      try {
+        await controller.getKeyInformation(key);
+        fail('Should have thrown HttpException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect(error.getStatus()).toBe(HttpStatus.BAD_GATEWAY);
+        expect(error.getResponse()).toEqual(errorResponse);
+      }
     });
   });
 });

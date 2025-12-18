@@ -1,22 +1,7 @@
-import { IsString, IsOptional, IsDateString, ValidateIf } from 'class-validator';
-
 export class MolPaymentQueryRequestDto {
-  @IsOptional()
-  @IsDateString()
-  @ValidateIf((o: MolPaymentQueryRequestDto) => o.created_at_end !== undefined)
   readonly created_at_start?: string;
-
-  @IsOptional()
-  @IsDateString()
-  @ValidateIf((o: MolPaymentQueryRequestDto) => o.created_at_start !== undefined)
   readonly created_at_end?: string;
-
-  @IsOptional()
-  @IsString()
   readonly end_to_end_id?: string;
-
-  @IsOptional()
-  @IsString()
   readonly internal_id?: string;
 
   static byInternalId(internalId: string): MolPaymentQueryRequestDto {

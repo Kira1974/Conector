@@ -3,8 +3,9 @@ import { INestApplication } from '@nestjs/common';
 import { ThLoggerService } from 'themis';
 
 import { TransferRequestDto, TransferResponseCode } from '../../src/infrastructure/entrypoint/dto';
-import { KeyResolutionResponse } from '../../src/core/model';
+import { DifeKeyResponseDto } from '../../src/infrastructure/provider/http-clients/dto';
 import { ResilienceConfigService } from '../../src/infrastructure/provider/resilience-config.service';
+import { KeyTypeDife, PaymentMethodTypeDife, IdentificationTypeDife, PersonTypeDife } from '../../src/core/constant';
 import { MolPaymentProvider } from '../../src/infrastructure/provider/http-clients/mol-payment-provider';
 import { AuthService, HttpClientService } from '../../src/infrastructure/provider/http-clients';
 import { ExternalServicesConfigService } from '../../src/configuration/external-services-config.service';
@@ -135,28 +136,36 @@ describe('MOL API Integration Tests', () => {
       additionalData: {}
     };
 
-    const mockKeyResolution: KeyResolutionResponse = {
-      correlationId: 'test-correlation-id',
-      traceId: '12345678901234567890123456789012345',
-      executionId: 'dife-exec-id',
+    const mockKeyResolution: DifeKeyResponseDto = {
+      correlation_id: 'test-correlation-id',
+      trace_id: '12345678901234567890123456789012345',
+      execution_id: 'dife-exec-id',
       status: 'SUCCESS',
-      resolvedKey: {
-        keyType: 'MAIL',
-        keyValue: 'john@doe.com',
+      key: {
+        key: {
+          type: KeyTypeDife.EMAIL,
+          value: 'john@doe.com'
+        },
         participant: {
           nit: '654987654',
           spbvi: 'CRB'
         },
-        paymentMethod: {
-          type: 'SAVINGS_ACCOUNT',
+        payment_method: {
+          type: PaymentMethodTypeDife.SAVINGS_ACCOUNT,
           number: '321456987'
         },
         person: {
-          identificationType: 'CITIZENSHIP_ID',
-          identificationNumber: '1234567890',
-          firstName: 'Jane',
-          lastName: 'Doe',
-          personType: 'NATURAL'
+          type: PersonTypeDife.NATURAL_PERSON,
+          identification: {
+            type: IdentificationTypeDife.CITIZENSHIP_CARD,
+            number: '1234567890'
+          },
+          name: {
+            first_name: 'Jane',
+            last_name: 'Doe',
+            second_name: '',
+            second_last_name: ''
+          }
         }
       }
     };

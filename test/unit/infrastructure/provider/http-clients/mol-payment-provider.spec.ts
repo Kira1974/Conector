@@ -7,11 +7,11 @@ import {
   MolPaymentRequestDto,
   MolPaymentQueryRequestDto,
   MolPaymentQueryResponseDto,
-  MolPaymentStatus,
-  MolPaymentStatusMapper
+  DifeKeyResponseDto
 } from '@infrastructure/provider/http-clients/dto';
+import { MolPaymentStatus, MolPaymentStatusMapper } from '@core/mapper';
+import { PersonTypeDife, IdentificationTypeDife, PaymentMethodTypeDife, KeyTypeDife } from '@core/constant';
 import { TransferRequestDto, TransferResponseCode } from '@infrastructure/entrypoint/dto';
-import { KeyResolutionResponse } from '@core/model';
 import { ExternalServicesConfigService } from '@config/external-services-config.service';
 import { LoggingConfigService } from '@config/logging-config.service';
 import { MolPayerConfigService } from '@config/mol-payer-config.service';
@@ -138,31 +138,37 @@ describe('MolPaymentProvider', () => {
       additionalData: {}
     };
 
-    const mockKeyResolution: KeyResolutionResponse = {
-      correlationId: 'dife-correlation-id',
-      traceId: 'test-transaction-id',
-      executionId: 'dife-exec-id',
+    const mockKeyResolution: DifeKeyResponseDto = {
+      correlation_id: 'dife-correlation-id',
+      trace_id: 'test-transaction-id',
+      execution_id: 'dife-exec-id',
       status: 'OK',
-      resolvedKey: {
-        keyType: 'MAIL',
-        keyValue: 'john@doe.com',
+      key: {
+        key: {
+          type: KeyTypeDife.EMAIL,
+          value: 'john@doe.com'
+        },
         participant: {
           nit: '654987654',
           spbvi: 'CRB'
         },
-        paymentMethod: {
-          type: 'SAVINGS_ACCOUNT',
+        payment_method: {
+          type: PaymentMethodTypeDife.SAVINGS_ACCOUNT,
           number: '321456987'
         },
         person: {
-          identificationType: 'CITIZENSHIP_ID',
-          identificationNumber: '1234567890',
-          firstName: 'Jane',
-          lastName: 'Doe',
-          legalCompanyName: '',
-          secondName: '',
-          secondLastName: '',
-          personType: 'Natural'
+          type: PersonTypeDife.NATURAL_PERSON,
+          identification: {
+            type: IdentificationTypeDife.CITIZENSHIP_CARD,
+            number: '1234567890'
+          },
+          name: {
+            first_name: 'Jane',
+            last_name: 'Doe',
+            second_name: '',
+            second_last_name: ''
+          },
+          legal_name: ''
         }
       }
     };

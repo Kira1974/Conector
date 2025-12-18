@@ -170,21 +170,21 @@ describe('DIFE API Integration Tests', () => {
       );
 
       expect(result).toBeDefined();
-      expect(result.correlationId).toBe('123456789');
-      expect(result.executionId).toBe('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892');
+      expect(result.correlation_id).toBe('123456789');
+      expect(result.execution_id).toBe('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892');
       expect(result.status).toBe('SUCCESS');
-      expect(result.resolvedKey).toBeDefined();
-      expect(result.resolvedKey?.keyType).toBe('O');
-      expect(result.resolvedKey?.keyValue).toBe('@COLOMBIA');
-      expect(result.resolvedKey?.participant.nit).toBe('12345678');
-      expect(result.resolvedKey?.participant.spbvi).toBe('CRB');
-      expect(result.resolvedKey?.paymentMethod.type).toBe('CAHO');
-      expect(result.resolvedKey?.paymentMethod.number).toBe('1234567890123');
-      expect(result.resolvedKey?.person.personType).toBe('N');
-      expect(result.resolvedKey?.person.firstName).toBe('Juan');
-      expect(result.resolvedKey?.person.lastName).toBe('Pérez');
-      expect(result.resolvedKey?.person.legalCompanyName).toBe('Nombre de la Persona Jurídica.');
-      expect(result.errors).toEqual([]);
+      expect(result.key).toBeDefined();
+      expect(result.key?.key.type).toBe('O');
+      expect(result.key?.key.value).toBe('@COLOMBIA');
+      expect(result.key?.participant.nit).toBe('12345678');
+      expect(result.key?.participant.spbvi).toBe('CRB');
+      expect(result.key?.payment_method.type).toBe('CAHO');
+      expect(result.key?.payment_method.number).toBe('1234567890123');
+      expect(result.key?.person.type).toBe('N');
+      expect(result.key?.person.name?.first_name).toBe('Juan');
+      expect(result.key?.person.name?.last_name).toBe('Pérez');
+      expect(result.key?.person.legal_name).toBe('Nombre de la Persona Jurídica.');
+      expect(result.errors || []).toEqual([]);
     });
 
     it('should handle ERROR response from DIFE specification', async () => {
@@ -220,8 +220,8 @@ describe('DIFE API Integration Tests', () => {
 
       expect(result.status).toBe('ERROR');
       expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]).toContain('DIFE-0001');
-      expect(result.errors[0]).toContain('Invalid request');
+      expect(result.errors?.[0]?.code).toBe('DIFE-0001');
+      expect(result.errors?.[0]?.description).toBe('Invalid request');
 
       expect(_httpClientService.instance.post).toHaveBeenCalledWith(
         expect.stringContaining('/v1/key/resolve'),
@@ -283,10 +283,10 @@ describe('DIFE API Integration Tests', () => {
       const result = await provider.resolveKey(mockRequest);
 
       expect(result).toBeDefined();
-      expect(result.correlationId).toBe('minimal-test');
+      expect(result.correlation_id).toBe('minimal-test');
       expect(result.status).toBe('SUCCESS');
-      expect(result.resolvedKey).toBeUndefined();
-      expect(result.errors).toEqual([]);
+      expect(result.key).toBeUndefined();
+      expect(result.errors || []).toEqual([]);
     });
 
     it('should validate request structure matches DIFE specification exactly', async () => {

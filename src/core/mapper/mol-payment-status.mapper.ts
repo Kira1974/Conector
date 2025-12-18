@@ -1,4 +1,4 @@
-import { TransferResponseCode } from '../../../entrypoint/dto/transfer-response.dto';
+import { TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
 
 export enum MolPaymentStatus {
   PROCESSING = 'PROCESSING',

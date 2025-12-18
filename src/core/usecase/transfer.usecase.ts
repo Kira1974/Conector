@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
 import { IDifeProvider, IMolPaymentProvider } from '../provider';
-import { AdditionalDataKey, KeyResolutionRequest, KeyResolutionResponse } from '../model';
+import { AdditionalDataKey, KeyResolutionRequest } from '../model';
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 import {
   generateCorrelationId,
   calculateKeyType,
@@ -59,7 +60,7 @@ export class TransferUseCase {
       }
 
       const keyResolutionRequest = this.buildKeyResolutionRequest(request);
-      const keyResolution: KeyResolutionResponse = await this.difeProvider.resolveKey(keyResolutionRequest);
+      const keyResolution: DifeKeyResponseDto = await this.difeProvider.resolveKey(keyResolutionRequest);
       const difeAdditionalData = buildAdditionalDataFromKeyResolution(keyResolution);
 
       const validationError = this.validateRequest(request, keyResolution);
@@ -85,10 +86,7 @@ export class TransferUseCase {
     }
   }
 
-  private validateRequest(
-    request: TransferRequestDto,
-    keyResolution: KeyResolutionResponse
-  ): TransferResponseDto | null {
+  private validateRequest(request: TransferRequestDto, keyResolution: DifeKeyResponseDto): TransferResponseDto | null {
     const difeErrorResponse = buildDifeErrorResponseIfAny(request, keyResolution);
     if (difeErrorResponse) {
       return difeErrorResponse;

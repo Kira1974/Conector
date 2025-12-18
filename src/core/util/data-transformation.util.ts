@@ -1,17 +1,17 @@
-import { KeyResolutionResponse } from '../model';
 import { AdditionalDataKey } from '../model/additional-data-key.enum';
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 
-export function buildAdditionalDataFromKeyResolution(keyResolution: KeyResolutionResponse): Record<string, string> {
-  const resolvedKey = keyResolution.resolvedKey;
-  if (!resolvedKey) {
+export function buildAdditionalDataFromKeyResolution(keyResolution: DifeKeyResponseDto): Record<string, string> {
+  const key = keyResolution.key;
+  if (!key?.person || !key?.payment_method) {
     return {};
   }
 
-  const documentNumber = resolvedKey.person.identificationNumber || '';
-  const obfuscatedName = buildObfuscatedName(resolvedKey.person);
-  const accountNumber = resolvedKey.paymentMethod.number || '';
+  const documentNumber = key.person.identification?.number || '';
+  const obfuscatedName = buildObfuscatedName(key.person);
+  const accountNumber = key.payment_method.number || '';
   const maskedAccountNumber = buildMaskedAccountNumber(accountNumber);
-  const accountType = resolvedKey.paymentMethod.type || '';
+  const accountType = key.payment_method.type || '';
 
   return {
     [AdditionalDataKey.DOCUMENT_NUMBER]: documentNumber,
@@ -21,8 +21,17 @@ export function buildAdditionalDataFromKeyResolution(keyResolution: KeyResolutio
   };
 }
 
-function buildObfuscatedName(person: KeyResolutionResponse['resolvedKey']['person']): string {
-  const nameParts = [person.firstName, person.secondName, person.lastName, person.secondLastName]
+function buildObfuscatedName(person: DifeKeyResponseDto['key']['person']): string {
+  if (!person.name) {
+    return '';
+  }
+
+  const nameParts = [
+    person.name.first_name,
+    person.name.second_name,
+    person.name.last_name,
+    person.name.second_last_name
+  ]
     .map((part) => obfuscateWord(part || ''))
     .filter((obfuscated) => obfuscated.length > 0);
 

@@ -3,9 +3,15 @@ import { ThLoggerService } from 'themis';
 import { TransferUseCase } from '@core/usecase';
 import { IDifeProvider, IMolPaymentProvider } from '@core/provider';
 import { PendingTransferService } from '@core/usecase/pending-transfer.service';
-import { KeyResolutionResponse } from '@core/model';
-import { TransferMessage } from '@core/constant';
+import {
+  TransferMessage,
+  KeyTypeDife,
+  PaymentMethodTypeDife,
+  IdentificationTypeDife,
+  PersonTypeDife
+} from '@core/constant';
 import { TransferRequestDto, TransferResponseCode, TransferResponseDto } from '@infrastructure/entrypoint/dto';
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 
 describe('TransferUseCase', () => {
   let useCase: TransferUseCase;
@@ -74,30 +80,36 @@ describe('TransferUseCase', () => {
       additionalData: {}
     };
 
-    const mockDifeResponse: KeyResolutionResponse = {
-      correlationId: 'DIFE-CORR-123',
-      executionId: 'DIFE-EXEC-456',
-      traceId: 'TRACE-789',
+    const mockDifeResponse: DifeKeyResponseDto = {
+      correlation_id: 'DIFE-CORR-123',
+      execution_id: 'DIFE-EXEC-456',
+      trace_id: 'TRACE-789',
       status: 'SUCCESS',
-      resolvedKey: {
-        keyType: 'M',
-        keyValue: '3001234567',
+      key: {
+        key: {
+          type: KeyTypeDife.MOBILE_NUMBER,
+          value: '3001234567'
+        },
         participant: {
           nit: '900123456',
           spbvi: 'CRB'
         },
-        paymentMethod: {
-          type: 'CAHO',
+        payment_method: {
+          type: PaymentMethodTypeDife.SAVINGS_ACCOUNT,
           number: '1234567890'
         },
         person: {
-          identificationType: 'CC',
-          identificationNumber: '1234567890',
-          firstName: 'Laura',
-          secondName: 'Turga',
-          lastName: 'Daniela',
-          secondLastName: 'Drama',
-          personType: 'N'
+          type: PersonTypeDife.NATURAL_PERSON,
+          identification: {
+            type: IdentificationTypeDife.CITIZENSHIP_CARD,
+            number: '1234567890'
+          },
+          name: {
+            first_name: 'Laura',
+            second_name: 'Turga',
+            last_name: 'Daniela',
+            second_last_name: 'Drama'
+          }
         }
       }
     };
@@ -322,9 +334,9 @@ describe('TransferUseCase', () => {
 
     it('should fail transfer when DIFE returns ERROR status', async () => {
       mockDifeProvider.resolveKey.mockResolvedValue({
-        correlationId: 'DIFE-CORR-ERROR',
+        correlation_id: 'DIFE-CORR-ERROR',
         status: 'ERROR',
-        errors: ['DIFE-0001: Invalid request']
+        errors: [{ code: 'DIFE-0001', description: 'Invalid request' }]
       });
 
       const result = await useCase.executeTransfer(mockRequest);
@@ -336,13 +348,17 @@ describe('TransferUseCase', () => {
     });
 
     it('should return REJECTED_BY_PROVIDER when DIFE returns validation error (DIFE-5005)', async () => {
-      const keyResolution: KeyResolutionResponse = {
-        correlationId: 'test-correlation-id',
-        executionId: 'test-execution-id',
-        traceId: 'test-trace-id',
+      const keyResolution: DifeKeyResponseDto = {
+        correlation_id: 'test-correlation-id',
+        execution_id: 'test-execution-id',
+        trace_id: 'test-trace-id',
         status: 'ERROR',
         errors: [
-          'DIFE-5005: The key.value has an invalid format. Only accepts letters and numbers, minimum 6 and maximum 21 characters, all in uppercase, and starting with @.'
+          {
+            code: 'DIFE-5005',
+            description:
+              'The key.value has an invalid format. Only accepts letters and numbers, minimum 6 and maximum 21 characters, all in uppercase, and starting with @.'
+          }
         ]
       };
       mockDifeProvider.resolveKey.mockResolvedValue(keyResolution);
@@ -357,12 +373,12 @@ describe('TransferUseCase', () => {
     });
 
     it('should return REJECTED_BY_PROVIDER when DIFE returns validation error (DIFE-4000)', async () => {
-      const keyResolution: KeyResolutionResponse = {
-        correlationId: 'test-correlation-id',
-        executionId: 'test-execution-id',
-        traceId: 'test-trace-id',
+      const keyResolution: DifeKeyResponseDto = {
+        correlation_id: 'test-correlation-id',
+        execution_id: 'test-execution-id',
+        trace_id: 'test-trace-id',
         status: 'ERROR',
-        errors: ['DIFE-4000: Invalid key format']
+        errors: [{ code: 'DIFE-4000', description: 'Invalid key format' }]
       };
       mockDifeProvider.resolveKey.mockResolvedValue(keyResolution);
 
@@ -390,12 +406,12 @@ describe('TransferUseCase', () => {
     });
 
     it('should return REJECTED_BY_PROVIDER when DIFE returns key not found error (DIFE-0004)', async () => {
-      const keyResolution: KeyResolutionResponse = {
-        correlationId: 'test-correlation-id',
-        executionId: 'test-execution-id',
-        traceId: 'test-trace-id',
+      const keyResolution: DifeKeyResponseDto = {
+        correlation_id: 'test-correlation-id',
+        execution_id: 'test-execution-id',
+        trace_id: 'test-trace-id',
         status: 'ERROR',
-        errors: ['DIFE-0004: The key does not exist or is canceled.']
+        errors: [{ code: 'DIFE-0004', description: 'The key does not exist or is canceled.' }]
       };
       mockDifeProvider.resolveKey.mockResolvedValue(keyResolution);
 

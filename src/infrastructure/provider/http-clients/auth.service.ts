@@ -12,12 +12,7 @@ import { SecretsConfigService } from '@config/secrets-config.service';
 import { ResilienceConfigService } from '../resilience-config.service';
 
 import { HttpClientService } from './http-client.service';
-
-export interface AuthResponse {
-  access_token: string;
-  expires_in?: number;
-  token_type?: string;
-}
+import { AuthResponse } from './dto';
 
 @Injectable()
 export class AuthService {

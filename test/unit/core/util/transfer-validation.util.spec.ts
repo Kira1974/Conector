@@ -1,7 +1,13 @@
 import { TransferRequestDto } from '@infrastructure/entrypoint/dto/transfer-request.dto';
 import { TransferResponseCode } from '@infrastructure/entrypoint/dto/transfer-response.dto';
-import { KeyResolutionResponse } from '@core/model';
-import { TransferMessage } from '@core/constant';
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
+import {
+  TransferMessage,
+  KeyTypeDife,
+  PaymentMethodTypeDife,
+  IdentificationTypeDife,
+  PersonTypeDife
+} from '@core/constant';
 import { buildDifeErrorResponseIfAny } from '@core/util/transfer-validation.util';
 
 describe('transfer-validation.util', () => {
@@ -25,26 +31,34 @@ describe('transfer-validation.util', () => {
     };
 
     it('should return null when status is SUCCESS and resolvedKey exists', () => {
-      const keyResolution: KeyResolutionResponse = {
-        correlationId: 'test-correlation-id',
+      const keyResolution: DifeKeyResponseDto = {
+        correlation_id: 'test-correlation-id',
         status: 'SUCCESS',
-        resolvedKey: {
-          keyType: 'O',
-          keyValue: '3001234567',
+        key: {
+          key: {
+            type: 'O' as KeyTypeDife,
+            value: '3001234567'
+          },
           participant: {
             nit: '12345678',
             spbvi: 'CRB'
           },
-          paymentMethod: {
+          payment_method: {
             number: '1234567890',
-            type: 'CAHO'
+            type: 'CAHO' as PaymentMethodTypeDife
           },
           person: {
-            identificationNumber: '1234567890',
-            identificationType: 'CC',
-            personType: 'N',
-            firstName: 'John',
-            lastName: 'Doe'
+            type: 'N' as PersonTypeDife,
+            identification: {
+              type: 'CC' as IdentificationTypeDife,
+              number: '1234567890'
+            },
+            name: {
+              first_name: 'John',
+              last_name: 'Doe',
+              second_name: '',
+              second_last_name: ''
+            }
           }
         }
       };
@@ -55,10 +69,10 @@ describe('transfer-validation.util', () => {
     });
 
     it('should return error when status is ERROR', () => {
-      const keyResolution: KeyResolutionResponse = {
-        correlationId: 'test-correlation-id',
+      const keyResolution: DifeKeyResponseDto = {
+        correlation_id: 'test-correlation-id',
         status: 'ERROR',
-        errors: ['DIFE-0004: The key does not exist or is canceled.']
+        errors: [{ code: 'DIFE-0004', description: 'The key does not exist or is canceled.' }]
       };
 
       const result = buildDifeErrorResponseIfAny(mockRequest, keyResolution);
@@ -70,10 +84,9 @@ describe('transfer-validation.util', () => {
     });
 
     it('should return error when resolvedKey is undefined even if status is not ERROR', () => {
-      const keyResolution: KeyResolutionResponse = {
-        correlationId: 'test-correlation-id',
-        status: 'SUCCESS',
-        resolvedKey: undefined
+      const keyResolution: DifeKeyResponseDto = {
+        correlation_id: 'test-correlation-id',
+        status: 'SUCCESS'
       };
 
       const result = buildDifeErrorResponseIfAny(mockRequest, keyResolution);
@@ -86,9 +99,8 @@ describe('transfer-validation.util', () => {
     });
 
     it('should return error when resolvedKey is undefined and status is undefined', () => {
-      const keyResolution: KeyResolutionResponse = {
-        correlationId: 'test-correlation-id',
-        resolvedKey: undefined
+      const keyResolution: DifeKeyResponseDto = {
+        correlation_id: 'test-correlation-id'
       };
 
       const result = buildDifeErrorResponseIfAny(mockRequest, keyResolution);

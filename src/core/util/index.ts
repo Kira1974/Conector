@@ -8,3 +8,6 @@ export * from './transfer-validation.util';
 export * from './network-error-extractor.util';
 export * from './data-transformation.util';
 export * from './error-constants.util';
+
+// Mappers
+export * from '../mapper';

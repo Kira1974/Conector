@@ -7,7 +7,7 @@ import { AxiosResponse } from 'axios';
 import { ExternalServiceException, PaymentProcessingException } from '@core/exception/custom.exceptions';
 import { IMolPaymentProvider } from '@core/provider';
 import { formatTimestampWithoutZ } from '@core/util';
-import { AdditionalDataKey, KeyResolutionResponse } from '@core/model';
+import { AdditionalDataKey } from '@core/model';
 import { TransferMessage } from '@core/constant';
 import { ExternalServicesConfigService } from '@config/external-services-config.service';
 import { LoggingConfigService } from '@config/logging-config.service';
@@ -18,10 +18,11 @@ import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network
 import { TransferRequestDto, TransferResponseDto, TransferResponseCode } from '../../entrypoint/dto';
 
 import {
-  CredibancoApiResponse,
+  MolPaymentResponse,
   MolPaymentRequestDto,
   MolPaymentQueryRequestDto,
-  MolPaymentQueryResponseDto
+  MolPaymentQueryResponseDto,
+  DifeKeyResponseDto
 } from './dto';
 
 import { AuthService, HttpClientService } from './';
@@ -57,7 +58,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     eventType: new ThEventTypeBuilder().setDomain('payment').setAction('create'),
     tags: ['payment', 'mol', 'create']
   })
-  async createPayment(request: TransferRequestDto, keyResolution: KeyResolutionResponse): Promise<TransferResponseDto> {
+  async createPayment(request: TransferRequestDto, keyResolution: DifeKeyResponseDto): Promise<TransferResponseDto> {
     try {
       const baseUrl = this.externalServicesConfig.getMolBaseUrl();
       const url = `${baseUrl}/v1/payment`;
@@ -93,7 +94,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
 
       this.logger.log('NETWORK_REQUEST MOL', requestLog);
 
-      let response = await this.http.instance.post<CredibancoApiResponse>(url, dto, {
+      let response = await this.http.instance.post<MolPaymentResponse>(url, dto, {
         headers,
         timeout
       });
@@ -122,7 +123,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         this.auth.clearCache();
         headers = await this.buildHeaders(baseUrl);
 
-        response = await this.http.instance.post<CredibancoApiResponse>(url, dto, {
+        response = await this.http.instance.post<MolPaymentResponse>(url, dto, {
           headers,
           timeout
         });
@@ -360,9 +361,9 @@ export class MolPaymentProvider implements IMolPaymentProvider {
   }
 
   private handlePaymentResponse(
-    response: AxiosResponse<CredibancoApiResponse>,
+    response: AxiosResponse<MolPaymentResponse>,
     request: TransferRequestDto,
-    keyResolution: KeyResolutionResponse
+    keyResolution: DifeKeyResponseDto
   ): TransferResponseDto {
     if (response.status >= 400) {
       let errorDescription = '';
@@ -421,7 +422,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       throw new PaymentProcessingException(errorDescription, request.transactionId || '');
     }
 
-    const difeExecutionId = keyResolution.executionId || '';
+    const difeExecutionId = keyResolution.execution_id || '';
     const molExecutionId = response.data.execution_id || '';
 
     const isSuccess =
@@ -444,16 +445,16 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     };
   }
 
-  private toPaymentRequestDto(request: TransferRequestDto, keyResolution: KeyResolutionResponse): MolPaymentRequestDto {
+  private toPaymentRequestDto(request: TransferRequestDto, keyResolution: DifeKeyResponseDto): MolPaymentRequestDto {
     const currency = request.transaction.amount.currency;
-    const resolvedKey = keyResolution.resolvedKey;
-    if (!resolvedKey) {
+    const key = keyResolution.key;
+    if (!key?.person || !key?.payment_method) {
       throw new Error('Key resolution data is missing');
     }
     const payerConfiguration = this.getPayerConfigurationFromEnv();
-    const creditorDifeIdentificationType = this.mapIdentificationTypeToMol(resolvedKey.person.identificationType || '');
+    const creditorDifeIdentificationType = this.mapIdentificationTypeToMol(key.person.identification?.type || '');
     const now = formatTimestampWithoutZ();
-    const keyType = resolvedKey.keyType || 'OTHER';
+    const keyType = key.key.type || 'OTHER';
     return {
       additional_informations: request.transaction.description,
       billing_responsible: 'DEBT',
@@ -461,28 +462,28 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       creditor: {
         identification: {
           type: creditorDifeIdentificationType,
-          value: resolvedKey.person.identificationNumber
+          value: key.person.identification?.number || ''
         },
         key: {
           type: this.mapKeyTypeToMol(keyType),
-          value: resolvedKey.keyValue
+          value: key.key.value
         },
         name:
-          [resolvedKey.person.firstName, resolvedKey.person.lastName].filter(Boolean).join(' ') ||
-          resolvedKey.person.legalCompanyName ||
+          [key.person.name?.first_name, key.person.name?.last_name].filter(Boolean).join(' ') ||
+          key.person.legal_name ||
           '',
         participant: {
-          id: resolvedKey.participant.nit || '',
-          spbvi: resolvedKey.participant.spbvi || ''
+          id: key.participant.nit || '',
+          spbvi: key.participant.spbvi || ''
         },
         payment_method: {
           currency,
-          type: this.mapPaymentMethodTypeToMol(resolvedKey.paymentMethod.type || ''),
-          value: resolvedKey.paymentMethod.number || ''
+          type: this.mapPaymentMethodTypeToMol(key.payment_method.type || ''),
+          value: key.payment_method.number || ''
         }
       },
-      internal_id: keyResolution.correlationId || '',
-      key_resolution_id: keyResolution.traceId || '',
+      internal_id: keyResolution.correlation_id || '',
+      key_resolution_id: keyResolution.trace_id || '',
       payer: {
         identification: {
           type: payerConfiguration.identificationType,
@@ -549,7 +550,7 @@ export class MolPaymentProvider implements IMolPaymentProvider {
    * Log MOL payment response immediately after receiving it
    */
   private logMolPaymentResponse(
-    response: AxiosResponse<CredibancoApiResponse>,
+    response: AxiosResponse<MolPaymentResponse>,
     options: {
       eventId: string;
       traceId: string;

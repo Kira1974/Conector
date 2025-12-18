@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AxiosResponse } from 'axios';
 import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
 
-import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
+import { KeyResolutionRequest } from '@core/model';
 import { KeyResolutionException, ExternalServiceException } from '@core/exception/custom.exceptions';
 import { KeyTypeDife } from '@core/constant';
 import { formatTimestampWithoutZ } from '@core/util';
@@ -10,10 +10,10 @@ import { ExternalServicesConfigService } from '@config/external-services-config.
 import { LoggingConfigService } from '@config/logging-config.service';
 
 import { ResilienceConfigService } from '../resilience-config.service';
-import { KeyResolutionMapper } from '../mapper';
-import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network-log.util';
 
-import { ResolveKeyRequestDto, ResolveKeyResponseDto } from './dto';
+
+import { DifeKeyRequestDto, DifeKeyResponseDto } from './dto';
+import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network-log.util';
 
 import { AuthService, HttpClientService } from './';
 
@@ -43,7 +43,7 @@ export class DifeProvider {
    * @param request Domain model for key resolution
    * @returns Domain model response
    */
-  async resolveKey(request: KeyResolutionRequest): Promise<KeyResolutionResponse> {
+  async resolveKey(request: KeyResolutionRequest): Promise<DifeKeyResponseDto> {
     try {
       const c110Timestamp = formatTimestampWithoutZ();
 
@@ -53,7 +53,7 @@ export class DifeProvider {
 
       const c120Timestamp = formatTimestampWithoutZ();
 
-      const requestBody: ResolveKeyRequestDto = {
+      const requestBody: DifeKeyRequestDto = {
         correlation_id: request.correlationId,
         key: {
           type: (request.keyType || 'O') as KeyTypeDife,
@@ -90,7 +90,7 @@ export class DifeProvider {
       this.logger.log('NETWORK_REQUEST DIFE', requestLog);
 
       const timeout = this.resilienceConfig.getDifeTimeout();
-      let response = await this.http.instance.post<ResolveKeyResponseDto>(url, requestBody, {
+      let response = await this.http.instance.post<DifeKeyResponseDto>(url, requestBody, {
         headers,
         timeout
       });
@@ -118,7 +118,7 @@ export class DifeProvider {
           Authorization: `Bearer ${token}`
         };
 
-        response = await this.http.instance.post<ResolveKeyResponseDto>(url, requestBody, {
+        response = await this.http.instance.post<DifeKeyResponseDto>(url, requestBody, {
           headers,
           timeout
         });
@@ -147,24 +147,20 @@ export class DifeProvider {
         );
       }
 
-      const responseDto: ResolveKeyResponseDto = response.data;
-
-      const domainResult = KeyResolutionMapper.toDomain(responseDto);
+      const responseDto: DifeKeyResponseDto = response.data;
 
       // Handle new error structure from DIFE API
-      if (domainResult.status === 'ERROR' && domainResult.errors.length > 0) {
-        const errorInfo = response.data.errors?.[0];
+      if (responseDto.status === 'ERROR' && responseDto.errors && responseDto.errors.length > 0) {
+        const errorInfo = responseDto.errors[0];
         this.logger.error('DIFE API returned error response', {
           correlationId: request.correlationId,
           errorCode: errorInfo?.code,
           errorDescription: errorInfo?.description,
-          executionId: response.data.execution_id
+          executionId: responseDto.execution_id
         });
-
-        return domainResult;
       }
 
-      return domainResult;
+      return responseDto;
     } catch (error: unknown) {
       this.logger.error('Key resolution failed', {
         correlationId: request.correlationId,
@@ -188,7 +184,7 @@ export class DifeProvider {
    * Log network response immediately after receiving it
    */
   private logNetworkResponse(
-    response: AxiosResponse<ResolveKeyResponseDto>,
+    response: AxiosResponse<DifeKeyResponseDto>,
     options: {
       eventId: string;
       traceId: string;

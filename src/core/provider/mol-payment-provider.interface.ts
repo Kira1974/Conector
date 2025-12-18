@@ -1,10 +1,10 @@
 import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer-request.dto';
 import { TransferResponseDto } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
-import { KeyResolutionResponse } from '../model';
 import {
+  DifeKeyResponseDto,
   MolPaymentQueryRequestDto,
   MolPaymentQueryResponseDto
-} from '../../infrastructure/provider/http-clients/dto/mol-payment-query.dto';
+} from '../../infrastructure/provider/http-clients/dto';
 
 /**
  * MOL Payment Provider abstract class for payment operations
@@ -15,10 +15,7 @@ export abstract class IMolPaymentProvider {
    * Create payment using MOL API
    * Returns the response DTO directly
    */
-  abstract createPayment(
-    request: TransferRequestDto,
-    keyResolution: KeyResolutionResponse
-  ): Promise<TransferResponseDto>;
+  abstract createPayment(request: TransferRequestDto, keyResolution: DifeKeyResponseDto): Promise<TransferResponseDto>;
 
   /**
    * Query payment status using MOL API

@@ -1,8 +1,11 @@
+// Auth API DTOs
+export * from './auth-response.dto';
+
 // DIFE API DTOs
-export * from './resolve-key.dto';
+export * from './dife-key-request.dto';
+export * from './dife-key-response.dto';
 
 // Payment API DTOs
-export * from './credibanco-api-response.dto';
+export * from './mol-payment-response.dto';
 export * from './mol-payment-request.dto';
 export * from './mol-payment-query.dto';
-export * from './mol-payment-status-mapper';

@@ -20,10 +20,10 @@ export class KeyResolutionUseCase {
   }
 
   async execute(key: string): Promise<KeyResolutionResponseDto> {
-    try {
-      const keyType = calculateKeyType(key);
-      const correlationId = generateCorrelationId();
+    const keyType = calculateKeyType(key);
+    const correlationId = generateCorrelationId();
 
+    try {
       const request: KeyResolutionRequest = {
         correlationId,
         key,
@@ -32,34 +32,46 @@ export class KeyResolutionUseCase {
 
       const keyResolution: KeyResolutionResponse = await this.difeProvider.resolveKey(request);
 
-      if (keyResolution.errors && keyResolution.errors.length > 0) {
-        const errorMessage = keyResolution.errors.join(', ');
+      return this.processKeyResolution(keyResolution, key, keyType, correlationId);
+    } catch (error: unknown) {
+      return this.handleError(error, key, keyType, correlationId);
+    }
+  }
+  private processKeyResolution(
+    keyResolution: KeyResolutionResponse,
+    key: string,
+    keyType: string,
+    correlationId: string
+  ): KeyResolutionResponseDto {
+    if (keyResolution.errors && keyResolution.errors.length > 0) {
+      const errorMessage = keyResolution.errors.join(', ');
 
-        this.logger.warn('Key resolution returned errors', {
-          difeCorrelationId: keyResolution.correlationId || correlationId,
-          errorCount: keyResolution.errors.length
-        });
-
-        return this.buildErrorResponse(key, keyType, errorMessage);
-      }
-
-      if (!keyResolution.resolvedKey) {
-        this.logger.error('Key resolution failed', {
-          difeCorrelationId: keyResolution.correlationId || correlationId
-        });
-
-        return this.buildErrorResponse(key, keyType, 'Key resolution failed');
-      }
-
-      this.logger.log('Key resolved successfully', {
+      this.logger.warn('DIFE returned business validation errors', {
+        correlationId,
         difeCorrelationId: keyResolution.correlationId || correlationId,
-        difeExecutionId: keyResolution.executionId
+        errorCount: keyResolution.errors.length,
+        errorCodes: keyResolution.errors
       });
 
-      return this.buildSuccessResponse(key, keyType, keyResolution);
-    } catch (error: unknown) {
-      return this.handleError(error, key);
+      return this.buildErrorResponse(key, keyType, errorMessage);
     }
+
+    if (!keyResolution.resolvedKey) {
+      this.logger.error('Key resolution failed - incomplete response from DIFE', {
+        correlationId,
+        difeCorrelationId: keyResolution.correlationId || correlationId
+      });
+
+      return this.buildErrorResponse(key, keyType, 'Key resolution failed');
+    }
+
+    this.logger.log('Key resolved successfully', {
+      correlationId,
+      difeCorrelationId: keyResolution.correlationId || correlationId,
+      difeExecutionId: keyResolution.executionId
+    });
+
+    return this.buildSuccessResponse(key, keyType, keyResolution);
   }
 
   private buildSuccessResponse(
@@ -102,6 +114,7 @@ export class KeyResolutionUseCase {
         networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
       }
     }
+
     const errorInfo: NetworkErrorInfo = {
       code: networkCode,
       description: networkMessage,
@@ -123,11 +136,11 @@ export class KeyResolutionUseCase {
     };
   }
 
-  private handleError(error: unknown, key: string): KeyResolutionResponseDto {
-    const keyType = calculateKeyType(key);
+  private handleError(error: unknown, key: string, keyType: string, correlationId: string): KeyResolutionResponseDto {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
-    this.logger.error('Key resolution failed', {
+    this.logger.error('Key resolution failed with exception', {
+      correlationId,
       error: errorMessage,
       errorType: error instanceof Error ? error.constructor.name : 'Unknown'
     });

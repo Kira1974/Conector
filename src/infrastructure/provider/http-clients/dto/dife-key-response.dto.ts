@@ -1,34 +1,6 @@
-import { IsString, IsNotEmpty, IsObject, Length } from 'class-validator';
-
 import { KeyTypeDife, PaymentMethodTypeDife, IdentificationTypeDife, PersonTypeDife } from '@core/constant';
 
-export class ResolveKeyRequestDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Correlation ID is required in metadata' })
-  @Length(1, 50, { message: 'Correlation ID must be between 1 and 50 characters' })
-  correlation_id: string;
-
-  @IsObject()
-  key: {
-    type: KeyTypeDife;
-    value: string;
-  };
-
-  @IsObject()
-  time_marks: {
-    C110: string;
-    C120: string;
-  };
-}
-
-export interface TimelineDto {
-  requestReceivedAt?: string;
-  requestSentToDifeAt?: string;
-  difeReceivedAt?: string;
-  difeRespondedAt?: string;
-}
-
-export interface ResolveKeyResponseDto {
+export interface DifeKeyResponseDto {
   correlation_id: string;
   execution_id?: string;
   trace_id?: string;
@@ -47,7 +19,7 @@ export interface ResolveKeyResponseDto {
     };
     person: {
       type: PersonTypeDife;
-      legal_name?: string; // Added for juridical persons
+      legal_name?: string;
       identification: {
         type: IdentificationTypeDife;
         number: string;
@@ -75,4 +47,11 @@ export interface ResolveKeyResponseDto {
     C310?: string;
     C320?: string;
   };
+}
+
+export interface TimelineDto {
+  requestReceivedAt?: string;
+  requestSentToDifeAt?: string;
+  difeReceivedAt?: string;
+  difeRespondedAt?: string;
 }

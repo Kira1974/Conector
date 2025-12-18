@@ -151,7 +151,7 @@ describe('DifeProvider', () => {
 
       const result = await provider.resolveKey(mockRequest);
 
-      expect(result.resolvedKey).toBeDefined();
+      expect(result.key).toBeDefined();
       expect(result).toBeDefined();
       expect(mockHttpClientService.instance.post).toHaveBeenCalledWith(
         'https://mock-dife-api.example.com/v1/key/resolve',
@@ -240,7 +240,8 @@ describe('DifeProvider', () => {
 
       expect(result.status).toBe('ERROR');
       expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]).toContain('DIFE-0001');
+      expect(result.errors?.[0]?.code).toBe('DIFE-0001');
+      expect(result.errors?.[0]?.description).toBe('Invalid request');
       expect(mockLogger.error).toHaveBeenCalledWith(
         'DIFE API returned error response',
         expect.objectContaining({

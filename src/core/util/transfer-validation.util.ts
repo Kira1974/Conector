@@ -1,7 +1,7 @@
-import { KeyResolutionResponse } from '../model';
 import { TransferMessage } from '../constant';
 import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer-request.dto';
 import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 
 import { ErrorMessageMapper, NetworkErrorInfo } from './error-message.mapper';
 
@@ -11,14 +11,14 @@ const DIFE_VALIDATION_ERROR_CODE_MAX = 6000;
 
 export function validatePayeeDocumentNumber(
   request: TransferRequestDto,
-  keyResolution: KeyResolutionResponse
+  keyResolution: DifeKeyResponseDto
 ): TransferResponseDto | null {
   const payeeDocumentNumber = request.transactionParties.payee.documentNumber;
   if (!payeeDocumentNumber) {
     return null;
   }
 
-  const resolvedDocumentNumber = keyResolution.resolvedKey?.person.identificationNumber;
+  const resolvedDocumentNumber = keyResolution.key?.person?.identification?.number;
   if (!resolvedDocumentNumber) {
     return null;
   }
@@ -32,14 +32,14 @@ export function validatePayeeDocumentNumber(
 
 export function validateBrebAccountNumber(
   request: TransferRequestDto,
-  keyResolution: KeyResolutionResponse
+  keyResolution: DifeKeyResponseDto
 ): TransferResponseDto | null {
   const brebAccountNumber = extractBrebAccountNumber(request.additionalData);
   if (!brebAccountNumber) {
     return null;
   }
 
-  const resolvedPaymentMethodNumber = keyResolution.resolvedKey?.paymentMethod.number;
+  const resolvedPaymentMethodNumber = keyResolution.key?.payment_method?.number;
   if (!resolvedPaymentMethodNumber) {
     return null;
   }
@@ -68,13 +68,13 @@ const DEFAULT_DIFE_ERROR_MESSAGE = 'DIFE error';
 
 export function buildDifeErrorResponseIfAny(
   request: TransferRequestDto,
-  keyResolution: KeyResolutionResponse
+  keyResolution: DifeKeyResponseDto
 ): TransferResponseDto | null {
   if (keyResolution.status === 'ERROR') {
     const errorDescriptions = keyResolution.errors || [];
-    const firstError = errorDescriptions[0] || DEFAULT_DIFE_ERROR_MESSAGE;
-    const errorCode = extractDifeErrorCode(firstError);
-    const errorDescription = extractDifeErrorDescription(firstError);
+    const firstError = errorDescriptions[0];
+    const errorCode = firstError?.code;
+    const errorDescription = firstError?.description || DEFAULT_DIFE_ERROR_MESSAGE;
 
     const errorInfo: NetworkErrorInfo | null = errorCode
       ? {
@@ -98,7 +98,14 @@ export function buildDifeErrorResponseIfAny(
     };
   }
 
-  if (!keyResolution.resolvedKey) {
+  const hasValidKey =
+    keyResolution.key?.key &&
+    keyResolution.key.participant &&
+    keyResolution.key.payment_method &&
+    keyResolution.key.person?.identification &&
+    keyResolution.key.person.name;
+
+  if (!hasValidKey) {
     const errorInfo: NetworkErrorInfo = {
       code: undefined,
       description: 'Key resolution returned no data',
