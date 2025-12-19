@@ -10,10 +10,9 @@ import { ExternalServicesConfigService } from '@config/external-services-config.
 import { LoggingConfigService } from '@config/logging-config.service';
 
 import { ResilienceConfigService } from '../resilience-config.service';
-
+import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network-log.util';
 
 import { DifeKeyRequestDto, DifeKeyResponseDto } from './dto';
-import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network-log.util';
 
 import { AuthService, HttpClientService } from './';
 

@@ -11,10 +11,7 @@
     }
   },
   "mountebank": {
-    "enabled": true,
-    "oauthPort": 4545,
-    "difePort": 4546,
-    "molPort": 4547
+    "enabled": false
   },
   "molPayer": {
     "name": "Test Payer"

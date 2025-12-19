@@ -1,5 +1,6 @@
-import { AdditionalDataKey } from '../model/additional-data-key.enum';
 import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
+
+import { AdditionalDataKey } from '../model/additional-data-key.enum';
 
 export function buildAdditionalDataFromKeyResolution(keyResolution: DifeKeyResponseDto): Record<string, string> {
   const key = keyResolution.key;

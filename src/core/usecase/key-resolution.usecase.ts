@@ -7,6 +7,7 @@ import { calculateKeyType, generateCorrelationId, buildAdditionalDataFromKeyReso
 import { KeyResolutionException } from '@core/exception/custom.exceptions';
 import { KeyResolutionResponseDto } from '@infrastructure/entrypoint/dto';
 import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 
 @Injectable()
 export class KeyResolutionUseCase {
@@ -30,15 +31,73 @@ export class KeyResolutionUseCase {
         keyType
       };
 
-      const keyResolution: KeyResolutionResponse = await this.difeProvider.resolveKey(request);
+      const difeResponse = await this.difeProvider.resolveKey(request);
 
-      return this.processKeyResolution(keyResolution, key, keyType, correlationId);
+      const keyResolution: KeyResolutionResponse = this.mapDifeResponseToDomain(difeResponse, correlationId);
+
+      return this.processKeyResolution(keyResolution, difeResponse, key, keyType, correlationId);
     } catch (error: unknown) {
       return this.handleError(error, key, keyType, correlationId);
     }
   }
+
+  private mapDifeResponseToDomain(
+    difeResponse: DifeKeyResponseDto,
+    fallbackCorrelationId: string
+  ): KeyResolutionResponse {
+    if (difeResponse.status === 'ERROR' && difeResponse.errors) {
+      return {
+        correlationId: difeResponse.correlation_id || fallbackCorrelationId,
+        executionId: difeResponse.execution_id,
+        traceId: difeResponse.trace_id,
+        status: difeResponse.status,
+        errors: difeResponse.errors.map((e) => `${e.description} (${e.code})`)
+      };
+    }
+    if (!difeResponse.key) {
+      return {
+        correlationId: difeResponse.correlation_id || fallbackCorrelationId,
+        executionId: difeResponse.execution_id,
+        traceId: difeResponse.trace_id,
+        status: difeResponse.status,
+        errors: ['Key resolution failed - no key data in response']
+      };
+    }
+    const difeKey = difeResponse.key;
+
+    return {
+      correlationId: difeResponse.correlation_id || fallbackCorrelationId,
+      executionId: difeResponse.execution_id,
+      traceId: difeResponse.trace_id,
+      status: difeResponse.status,
+      resolvedKey: {
+        keyType: difeKey.key.type,
+        keyValue: difeKey.key.value,
+        participant: {
+          nit: difeKey.participant.nit,
+          spbvi: difeKey.participant.spbvi
+        },
+        paymentMethod: {
+          number: difeKey.payment_method.number,
+          type: difeKey.payment_method.type
+        },
+        person: {
+          identificationNumber: difeKey.person.identification.number,
+          identificationType: difeKey.person.identification.type,
+          legalCompanyName: difeKey.person.legal_name,
+          firstName: difeKey.person.name.first_name,
+          lastName: difeKey.person.name.last_name,
+          secondName: difeKey.person.name.second_name,
+          secondLastName: difeKey.person.name.second_last_name,
+          personType: difeKey.person.type
+        }
+      }
+    };
+  }
+
   private processKeyResolution(
     keyResolution: KeyResolutionResponse,
+    difeResponse: DifeKeyResponseDto,
     key: string,
     keyType: string,
     correlationId: string
@@ -71,19 +130,20 @@ export class KeyResolutionUseCase {
       difeExecutionId: keyResolution.executionId
     });
 
-    return this.buildSuccessResponse(key, keyType, keyResolution);
+    return this.buildSuccessResponse(key, keyType, keyResolution, difeResponse);
   }
 
   private buildSuccessResponse(
     key: string,
     keyType: string,
-    keyResolution: KeyResolutionResponse
+    keyResolution: KeyResolutionResponse,
+    difeResponse: DifeKeyResponseDto
   ): KeyResolutionResponseDto {
     const resolvedKey = keyResolution.resolvedKey;
     const person = resolvedKey.person;
     const paymentMethod = resolvedKey.paymentMethod;
 
-    const additionalData = buildAdditionalDataFromKeyResolution(keyResolution);
+    const additionalData = buildAdditionalDataFromKeyResolution(difeResponse);
     const personName = additionalData.OBFUSCATED_NAME || '';
     const accountNumber = additionalData.ACCOUNT_NUMBER || '';
 

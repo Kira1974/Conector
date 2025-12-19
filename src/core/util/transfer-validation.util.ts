@@ -1,7 +1,8 @@
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
+
 import { TransferMessage } from '../constant';
 import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer-request.dto';
 import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
-import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 
 import { ErrorMessageMapper, NetworkErrorInfo } from './error-message.mapper';
 

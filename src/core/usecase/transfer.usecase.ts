@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
+import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
+
 import { IDifeProvider, IMolPaymentProvider } from '../provider';
 import { AdditionalDataKey, KeyResolutionRequest } from '../model';
-import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 import {
   generateCorrelationId,
   calculateKeyType,
