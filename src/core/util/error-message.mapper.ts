@@ -13,7 +13,7 @@ export class ErrorMessageMapper {
     'DIFE-0003': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-0004': TransferMessage.KEY_NOT_FOUND_OR_CANCELED,
     'DIFE-0005': TransferMessage.KEY_SUSPENDED,
-    'DIFE-0006': TransferMessage.KEY_SUSPENDED,
+    'DIFE-0006': TransferMessage.KEY_SUSPENDED_BY_PARTICIPANT,
     'DIFE-0007': TransferMessage.VALIDATION_FAILED,
     'DIFE-0008': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-0009': TransferMessage.VALIDATION_FAILED,

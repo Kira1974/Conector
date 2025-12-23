@@ -5,9 +5,10 @@ import { IDifeProvider } from '@core/provider';
 import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
 import { calculateKeyType, generateCorrelationId, buildAdditionalDataFromKeyResolution } from '@core/util';
 import { KeyResolutionException } from '@core/exception/custom.exceptions';
-import { KeyResolutionResponseDto } from '@infrastructure/entrypoint/dto';
+import { KeyResolutionResponseDto, KeyResolutionResult } from '@infrastructure/entrypoint/dto';
 import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
 import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
+import { TransferMessage } from '@core/constant';
 
 @Injectable()
 export class KeyResolutionUseCase {
@@ -20,7 +21,7 @@ export class KeyResolutionUseCase {
     this.logger = this.loggerService.getLogger(KeyResolutionUseCase.name, ThLoggerComponent.APPLICATION);
   }
 
-  async execute(key: string): Promise<KeyResolutionResponseDto> {
+  async execute(key: string): Promise<KeyResolutionResult> {
     const keyType = calculateKeyType(key);
     const correlationId = generateCorrelationId();
 
@@ -32,12 +33,21 @@ export class KeyResolutionUseCase {
       };
 
       const difeResponse = await this.difeProvider.resolveKey(request);
-
       const keyResolution: KeyResolutionResponse = this.mapDifeResponseToDomain(difeResponse, correlationId);
+      const responseDto = this.processKeyResolution(keyResolution, difeResponse, key, keyType, correlationId);
 
-      return this.processKeyResolution(keyResolution, difeResponse, key, keyType, correlationId);
+      return {
+        response: responseDto,
+        correlationId,
+        difeExecutionId: difeResponse.execution_id
+      };
     } catch (error: unknown) {
-      return this.handleError(error, key, keyType, correlationId);
+      const errorResponse = this.handleError(error, key, keyType, correlationId);
+
+      return {
+        response: errorResponse,
+        correlationId
+      };
     }
   }
 
@@ -157,7 +167,8 @@ export class KeyResolutionUseCase {
       accountNumber,
       key,
       keyType,
-      responseCode: 'SUCCESS'
+      responseCode: 'SUCCESS',
+      message: TransferMessage.KEY_RESOLUTION_SUCCESS
     };
   }
 

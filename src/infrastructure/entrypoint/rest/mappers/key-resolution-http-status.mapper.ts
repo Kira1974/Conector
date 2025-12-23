@@ -11,8 +11,13 @@ export class KeyResolutionHttpStatusMapper {
       return HttpStatus.NOT_FOUND;
     }
 
+    // 400 BAD REQUEST
+    if (this.isFormatValidationError(networkCode)) {
+      return HttpStatus.BAD_REQUEST;
+    }
+
     // 422 UNPROCESSABLE ENTITY
-    if (this.isValidationError(networkCode)) {
+    if (this.isBusinessValidationError(networkCode)) {
       return HttpStatus.UNPROCESSABLE_ENTITY;
     }
 
@@ -35,17 +40,14 @@ export class KeyResolutionHttpStatusMapper {
     return notFoundErrors.includes(networkCode);
   }
 
-  private static isValidationError(networkCode: string): boolean {
-    const validationErrors = [
-      'DIFE-0005',
-      'DIFE-0006',
-      'DIFE-4000',
-      'DIFE-4001',
-      'DIFE-5005',
-      'DIFE-5012',
-      'DIFE-5017'
-    ];
-    return validationErrors.includes(networkCode);
+  private static isFormatValidationError(networkCode: string): boolean {
+    const formatValidationErrors = ['DIFE-4000', 'DIFE-5005'];
+    return formatValidationErrors.includes(networkCode);
+  }
+
+  private static isBusinessValidationError(networkCode: string): boolean {
+    const businessValidationErrors = ['DIFE-0005', 'DIFE-0006', 'DIFE-4001', 'DIFE-5012', 'DIFE-5017'];
+    return businessValidationErrors.includes(networkCode);
   }
 
   private static isTimeoutError(networkCode: string): boolean {

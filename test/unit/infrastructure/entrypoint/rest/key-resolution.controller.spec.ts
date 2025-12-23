@@ -66,7 +66,10 @@ describe('KeyResolutionController', () => {
         responseCode: 'SUCCESS'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: expectedResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       const result = await controller.getKeyInformation(key);
 
@@ -86,7 +89,10 @@ describe('KeyResolutionController', () => {
         networkMessage: 'DIFE: The key does not exist or is canceled.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: errorResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       try {
         await controller.getKeyInformation(key);
@@ -109,7 +115,10 @@ describe('KeyResolutionController', () => {
         networkMessage: 'DIFE: The key is suspended by the client.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: errorResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       try {
         await controller.getKeyInformation(key);
@@ -132,7 +141,10 @@ describe('KeyResolutionController', () => {
         networkMessage: 'DIFE: An unexpected error occurred.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: errorResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       try {
         await controller.getKeyInformation(key);
@@ -155,7 +167,10 @@ describe('KeyResolutionController', () => {
         networkMessage: 'DIFE: Timeout.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: errorResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       try {
         await controller.getKeyInformation(key);
@@ -176,7 +191,10 @@ describe('KeyResolutionController', () => {
         message: 'Internal error occurred.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: errorResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       try {
         await controller.getKeyInformation(key);
@@ -203,7 +221,10 @@ describe('KeyResolutionController', () => {
         responseCode: 'SUCCESS'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: expectedResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       const result = await controller.getKeyInformation(key);
 
@@ -226,7 +247,10 @@ describe('KeyResolutionController', () => {
         responseCode: 'SUCCESS'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: expectedResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       const result = await controller.getKeyInformation(key);
 
@@ -249,7 +273,10 @@ describe('KeyResolutionController', () => {
         responseCode: 'SUCCESS'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(expectedResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: expectedResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       await controller.getKeyInformation(key);
 
@@ -267,7 +294,10 @@ describe('KeyResolutionController', () => {
         networkMessage: 'DIFE: Network error.'
       };
 
-      mockKeyResolutionUseCase.execute.mockResolvedValue(errorResponse);
+      mockKeyResolutionUseCase.execute.mockResolvedValue({
+        response: errorResponse,
+        correlationId: 'test-correlation-id'
+      });
 
       try {
         await controller.getKeyInformation(key);

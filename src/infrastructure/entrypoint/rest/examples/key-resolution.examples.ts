@@ -1,8 +1,8 @@
 export class KeyResolutionExamples {
-  //200
+  // 200 - SUCCESS
   static readonly SUCCESS_RESPONSES = {
     alphanumericKey: {
-      summary: 'Alphanumeric key resolution',
+      summary: 'Resolución de llave alfanumérica',
       value: {
         documentNumber: '123143455',
         documentType: 'CC',
@@ -13,11 +13,12 @@ export class KeyResolutionExamples {
         accountNumber: '*******890123',
         key: '@COLOMBIA',
         keyType: 'O',
-        responseCode: 'SUCCESS'
+        responseCode: 'SUCCESS',
+        message: 'Key resolved successfully'
       }
     },
     mobileKey: {
-      summary: 'Mobile number key resolution',
+      summary: 'Resolución de llave de número móvil',
       value: {
         documentNumber: '1098765432',
         documentType: 'CC',
@@ -28,11 +29,12 @@ export class KeyResolutionExamples {
         accountNumber: '*******543210',
         key: '3001234567',
         keyType: 'M',
-        responseCode: 'SUCCESS'
+        responseCode: 'SUCCESS',
+        message: 'Key resolved successfully'
       }
     },
     emailKey: {
-      summary: 'Email key resolution',
+      summary: 'Resolución de llave de correo electrónico',
       value: {
         documentNumber: '987654321',
         documentType: 'CE',
@@ -43,11 +45,12 @@ export class KeyResolutionExamples {
         accountNumber: '*******333222',
         key: 'TEST@EXAMPLE.COM',
         keyType: 'E',
-        responseCode: 'SUCCESS'
+        responseCode: 'SUCCESS',
+        message: 'Key resolved successfully'
       }
     },
     businessKey: {
-      summary: 'Business code key resolution (Legal person)',
+      summary: 'Resolución de código de comercio (Persona jurídica)',
       value: {
         documentNumber: '900123456',
         documentType: 'NIT',
@@ -58,136 +61,144 @@ export class KeyResolutionExamples {
         accountNumber: '*******334444',
         key: '0012345678',
         keyType: 'B',
-        responseCode: 'SUCCESS'
+        responseCode: 'SUCCESS',
+        message: 'Key resolved successfully'
       }
     }
   };
 
-  //404
+  // 400 - BAD REQUEST
+  static readonly BAD_REQUEST_RESPONSES = {
+    invalidKeyFormat: {
+      summary: 'Formato de llave inválido (DIFE-4000)',
+      value: {
+        key: '@INVALIDKEY',
+        keyType: 'O',
+        responseCode: 'VALIDATION_FAILED',
+        message:
+          'Invalid key format. Valid formats: Alphanumeric (@[A-Z0-9]{5-20}), Mobile (3[0-9]{9}), Email (user@domain.com, 3-92 chars), Commerce Code (00[0-9]{8}), or Identification Number ([A-Z0-9]{1-18})',
+        networkCode: 'DIFE-4000',
+        networkMessage: 'DIFE: Invalid key format (DIFE-4000)'
+      }
+    },
+    invalidEmailFormat: {
+      summary: 'Formato de email inválido (DIFE-5005)',
+      value: {
+        key: 'invalid_key_5005',
+        keyType: 'E',
+        responseCode: 'VALIDATION_FAILED',
+        message:
+          'Invalid key format. Valid formats: Alphanumeric (@[A-Z0-9]{5-20}), Mobile (3[0-9]{9}), Email (user@domain.com, 3-92 chars), Commerce Code (00[0-9]{8}), or Identification Number ([A-Z0-9]{1-18})',
+        networkCode: 'DIFE-5005',
+        networkMessage:
+          'DIFE: The key.value has an invalid format. Must be an email, can have a minimum of 3 and a maximum of 92 characters and a valid structure. (DIFE-5005)'
+      }
+    }
+  };
+
+  // 404 - NOT FOUND
   static readonly NOT_FOUND_RESPONSES = {
     keyNotFound: {
-      summary: 'Key does not exist or is canceled (DIFE-0004)',
+      summary: 'La llave no existe o está cancelada (DIFE-0004)',
       value: {
         key: 'key_not_found',
         keyType: 'O',
         responseCode: 'ERROR',
         message: 'The key does not exist or is canceled.',
         networkCode: 'DIFE-0004',
-        networkMessage: 'DIFE: The key does not exist or is canceled.'
+        networkMessage: 'DIFE: The key does not exist or is canceled. (DIFE-0004)'
       }
     }
   };
 
-  //422
+  // 422 - UNPROCESSABLE ENTITY
   static readonly UNPROCESSABLE_ENTITY_RESPONSES = {
     keySuspendedByClient: {
-      summary: 'Key suspended by client (DIFE-0005)',
+      summary: 'Llave suspendida por el cliente (DIFE-0005)',
       value: {
         key: 'key_suspended',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'The key is suspended.',
+        message: 'The key is suspended by the client.',
         networkCode: 'DIFE-0005',
-        networkMessage: 'DIFE: The key is suspended by the client.'
+        networkMessage: 'DIFE: The key is suspended by the client. (DIFE-0005)'
       }
     },
     keySuspendedByParticipant: {
-      summary: 'Key suspended by participant (DIFE-0006)',
+      summary: 'Llave suspendida por el participante (DIFE-0006)',
       value: {
         key: 'key_suspended_participant',
         keyType: 'O',
-        responseCode: 'REJECTED_BY_PROVIDER',
-        message: 'The key is suspended.',
+        responseCode: 'ERROR',
+        message: 'The key is suspended by the participant.',
         networkCode: 'DIFE-0006',
-        networkMessage: 'DIFE: The key is suspended by the participant.'
-      }
-    },
-    invalidKeyFormat: {
-      summary: 'Invalid key format (DIFE-4000)',
-      value: {
-        key: '@INVALIDKEY',
-        keyType: 'O',
-        responseCode: 'REJECTED_BY_PROVIDER',
-        message: 'Invalid key format.',
-        networkCode: 'DIFE-4000',
-        networkMessage: 'DIFE: Invalid key format.'
-      }
-    },
-    invalidEmailFormat: {
-      summary: 'Invalid email format (DIFE-5005)',
-      value: {
-        key: 'invalid_key_5005',
-        keyType: 'E',
-        responseCode: 'REJECTED_BY_PROVIDER',
-        message: 'Invalid key format.',
-        networkCode: 'DIFE-5005',
-        networkMessage:
-          'DIFE: The key.value has an invalid format. Must be an email, can have a minimum of 3 and a maximum of 92 characters and a valid structure.'
+        networkMessage: 'DIFE: The key is suspended by the participant. (DIFE-0006)'
       }
     }
   };
 
-  //502
+  // 502 - BAD GATEWAY
   static readonly BAD_GATEWAY_RESPONSES = {
     difeUnexpectedError: {
-      summary: 'DIFE unexpected error (DIFE-9999)',
+      summary: 'Error inesperado de DIFE (DIFE-9999)',
       value: {
         key: 'dife_9999',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'An unexpected error occurred.',
+        message: 'Key resolution failed',
         networkCode: 'DIFE-9999',
-        networkMessage: 'DIFE: An unexpected error occurred.'
+        networkMessage: 'DIFE: An unexpected error occurred. (DIFE-9999)'
       }
     },
-    difeDiceError: {
-      summary: 'DIFE DICE API error (DIFE-0008)',
+    diceApiError: {
+      summary: 'Error de la API DICE (DIFE-0008)',
       value: {
         key: 'dife_0008',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'An unexpected error occurred in the DICE API.',
+        message: 'Key resolution failed',
         networkCode: 'DIFE-0008',
-        networkMessage: 'DIFE: An unexpected error occurred in the DICE API.'
+        networkMessage: 'DIFE: An unexpected error occurred in the DICE API (DIFE-0008)'
       }
     },
-    difeParticipantNotFound: {
-      summary: 'Participant does not exist (DIFE-5003)',
+    participantNotFound: {
+      summary: 'Participante no existe (DIFE-5003)',
       value: {
         key: 'dife_5003',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'The participant does not exist.',
+        message: 'Key resolution failed',
         networkCode: 'DIFE-5003',
-        networkMessage: 'DIFE: The participant does not exist.'
+        networkMessage: 'DIFE: The participant does not exist. (DIFE-5003)'
       }
     }
   };
 
-  //504
+  // 504 - GATEWAY TIMEOUT
   static readonly GATEWAY_TIMEOUT_RESPONSES = {
     difeTimeout: {
-      summary: 'DIFE timeout (DIFE-5000)',
+      summary: 'Tiempo de respuesta agotado de DIFE (DIFE-5000)',
       value: {
         key: 'dife_timeout',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'Request timeout.',
+        message: 'Request timeout',
         networkCode: 'DIFE-5000',
-        networkMessage: 'DIFE: Timeout.'
+        networkMessage: 'DIFE: Timeout. (DIFE-5000)'
       }
     }
   };
 
-  //500
+  // 500 - INTERNAL SERVER ERROR
   static readonly INTERNAL_SERVER_ERROR_RESPONSES = {
     charonInternalError: {
-      summary: 'Charon internal error',
+      summary: 'Error interno de Charon',
       value: {
         key: 'server_error',
         keyType: 'O',
         responseCode: 'ERROR',
-        message: 'An error occurred processing the request.'
+        message: 'Unknown error in key resolution network',
+        networkMessage: 'Key resolution failed for key server_error: Request failed with status code 500'
       }
     }
   };

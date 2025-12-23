@@ -17,6 +17,8 @@ export enum TransferMessage {
   ACCOUNT_MISMATCH = 'Payee account number does not match with key resolution',
   KEY_NOT_FOUND_OR_CANCELED = 'The key does not exist or is canceled.',
   KEY_SUSPENDED = 'The key is suspended by the client.',
+  KEY_SUSPENDED_BY_PARTICIPANT = 'The key is suspended by the participant.',
+  KEY_RESOLUTION_SUCCESS = 'Key resolved successfully',
   KEY_RESOLUTION_NETWORK_ERROR = 'Unknown error in key resolution network',
   PAYMENT_NETWORK_ERROR = 'Unknown error in payment network'
 }

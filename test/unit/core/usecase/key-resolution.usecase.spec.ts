@@ -124,16 +124,16 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.responseCode).toBe('SUCCESS');
-      expect(result.key).toBe('@COLOMBIA');
-      expect(result.keyType).toBe('O');
-      expect(result.documentNumber).toBe('1234567890');
-      expect(result.documentType).toBe('CC');
-      expect(result.personName).toBe('Mig*** Ant**** Her****** Gom**');
-      expect(result.personType).toBe('N');
-      expect(result.financialEntityNit).toBe('900123456');
-      expect(result.accountType).toBe('CAHO');
-      expect(result.accountNumber).toBe('****567890');
+      expect(result.response.responseCode).toBe('SUCCESS');
+      expect(result.response.key).toBe('@COLOMBIA');
+      expect(result.response.keyType).toBe('O');
+      expect(result.response.documentNumber).toBe('1234567890');
+      expect(result.response.documentType).toBe('CC');
+      expect(result.response.personName).toBe('Mig*** Ant**** Her****** Gom**');
+      expect(result.response.personType).toBe('N');
+      expect(result.response.financialEntityNit).toBe('900123456');
+      expect(result.response.accountType).toBe('CAHO');
+      expect(result.response.accountNumber).toBe('****567890');
     });
 
     it('should return ERROR when DIFE returns errors array', async () => {
@@ -144,12 +144,12 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.key).toBe('@NOEXISTE');
-      expect(result.keyType).toBe('O');
-      expect(result.networkCode).toBe('DIFE-0004');
-      expect(result.networkMessage).toBe('DIFE: The key does not exist or is canceled (DIFE-0004)');
-      expect(result.message).toBe(TransferMessage.KEY_NOT_FOUND_OR_CANCELED);
+      expect(result.response.responseCode).toBe('ERROR');
+      expect(result.response.key).toBe('@NOEXISTE');
+      expect(result.response.keyType).toBe('O');
+      expect(result.response.networkCode).toBe('DIFE-0004');
+      expect(result.response.networkMessage).toBe('DIFE: The key does not exist or is canceled (DIFE-0004)');
+      expect(result.response.message).toBe(TransferMessage.KEY_NOT_FOUND_OR_CANCELED);
     });
 
     it('should return ERROR when resolvedKey is undefined', async () => {
@@ -165,9 +165,9 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.message).toBe(TransferMessage.UNKNOWN_ERROR);
-      expect(result.networkMessage).toBe('Key resolution failed - no key data in response');
+      expect(result.response.responseCode).toBe('ERROR');
+      expect(result.response.message).toBe(TransferMessage.UNKNOWN_ERROR);
+      expect(result.response.networkMessage).toBe('Key resolution failed - no key data in response');
     });
 
     it('should handle KeyResolutionException and return ERROR', async () => {
@@ -182,9 +182,9 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.networkCode).toBe('DIFE-0001');
-      expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
+      expect(result.response.responseCode).toBe('ERROR');
+      expect(result.response.networkCode).toBe('DIFE-0001');
+      expect(result.response.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
     });
 
     it('should handle generic errors and return ERROR with UNKNOWN code', async () => {
@@ -195,10 +195,10 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.networkCode).toBeUndefined();
-      expect(result.networkMessage).toBe('Network timeout');
-      expect(result.message).toBe('Unknown error in key resolution network');
+      expect(result.response.responseCode).toBe('ERROR');
+      expect(result.response.networkCode).toBeUndefined();
+      expect(result.response.networkMessage).toBe('Network timeout');
+      expect(result.response.message).toBe('Unknown error in key resolution network');
     });
 
     it('should calculate keyType automatically for mobile number', async () => {
@@ -234,8 +234,8 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.keyType).toBe('M');
-      expect(result.responseCode).toBe('SUCCESS');
+      expect(result.response.keyType).toBe('M');
+      expect(result.response.responseCode).toBe('SUCCESS');
     });
 
     it('should calculate keyType automatically for email', async () => {
@@ -271,8 +271,8 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.keyType).toBe('E');
-      expect(result.responseCode).toBe('SUCCESS');
+      expect(result.response.keyType).toBe('E');
+      expect(result.response.responseCode).toBe('SUCCESS');
     });
 
     it('should handle DIFE-0001 error correctly', async () => {
@@ -283,9 +283,9 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.networkCode).toBe('DIFE-0001');
-      expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
+      expect(result.response.responseCode).toBe('ERROR');
+      expect(result.response.networkCode).toBe('DIFE-0001');
+      expect(result.response.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
     });
 
     it('should handle multiple DIFE errors by joining them', async () => {
@@ -305,10 +305,10 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.responseCode).toBe('ERROR');
-      expect(result.networkMessage).toBe('DIFE: Error 1 (DIFE-0001), Error 2 (DIFE-0002)');
-      expect(result.networkCode).toBe('DIFE-0001');
-      expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
+      expect(result.response.responseCode).toBe('ERROR');
+      expect(result.response.networkMessage).toBe('DIFE: Error 1 (DIFE-0001), Error 2 (DIFE-0002)');
+      expect(result.response.networkCode).toBe('DIFE-0001');
+      expect(result.response.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
     });
 
     it('should obfuscate account number showing only last 6 digits', async () => {
@@ -341,7 +341,7 @@ describe('KeyResolutionUseCase', () => {
 
       const result = await useCase.execute(key);
 
-      expect(result.accountNumber).toBe('********901234');
+      expect(result.response.accountNumber).toBe('********901234');
     });
   });
 });

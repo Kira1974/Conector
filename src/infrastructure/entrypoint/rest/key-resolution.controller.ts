@@ -30,25 +30,37 @@ export class KeyResolutionController {
     tags: ['key-resolution', 'dife']
   })
   async getKeyInformation(@Param('key') key: string): Promise<KeyResolutionResponseDto> {
-    this.logger.log('KEY_RESOLUTION Request', {
+    this.logger.log('CHARON_REQUEST', {
       method: 'GET',
-      KeyType: calculateKeyType(key),
+      keyType: calculateKeyType(key),
       requestParams: JSON.stringify({ key }, null, 2)
     });
 
-    const response = await this.keyResolutionUseCase.execute(key);
+    const result = await this.keyResolutionUseCase.execute(key);
 
-    if (response.responseCode !== 'SUCCESS') {
-      const httpStatus = KeyResolutionHttpStatusMapper.mapNetworkCodeToHttpStatus(response.networkCode);
-      throw new HttpException(response, httpStatus);
-    }
+    const { response, correlationId, difeExecutionId } = result;
+    const eventId = correlationId;
+    const traceId = correlationId;
 
-    this.logger.log('KEY_RESOLUTION Response', {
-      status: 200,
+    const httpStatus =
+      response.responseCode === 'SUCCESS'
+        ? HttpStatus.OK
+        : KeyResolutionHttpStatusMapper.mapNetworkCodeToHttpStatus(response.networkCode);
+
+    this.logger.log('CHARON_RESPONSE', {
+      status: httpStatus,
+      eventId,
+      traceId,
+      correlationId,
+      externalTransactionId: difeExecutionId,
       responseCode: response.responseCode,
+      networkCode: response.networkCode,
       responseBody: JSON.stringify(response, null, 2)
     });
 
+    if (response.responseCode !== 'SUCCESS') {
+      throw new HttpException(response, httpStatus);
+    }
     return response;
   }
 }

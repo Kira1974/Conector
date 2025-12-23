@@ -28,7 +28,7 @@ export class KeyResolutionResponseDto {
   @ApiProperty({ description: 'Key type', example: 'O' })
   keyType: string;
 
-  @ApiProperty({ description: 'Response code', example: 'SUCCESS', enum: ['SUCCESS', 'ERROR'] })
+  @ApiProperty({ description: 'Response code', example: 'SUCCESS', enum: ['SUCCESS', 'ERROR', 'VALIDATION_FAILED'] })
   responseCode: string;
 
   //Errors
@@ -44,4 +44,10 @@ export class KeyResolutionResponseDto {
     example: 'DIFE: The key does not exist or is canceled'
   })
   networkMessage?: string;
+}
+
+export interface KeyResolutionResult {
+  response: KeyResolutionResponseDto;
+  correlationId: string;
+  difeExecutionId?: string;
 }
