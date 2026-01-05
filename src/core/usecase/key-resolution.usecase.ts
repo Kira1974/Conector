@@ -5,11 +5,16 @@ import { IDifeProvider } from '@core/provider';
 import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
 import { calculateKeyType, generateCorrelationId, buildAdditionalDataFromKeyResolution } from '@core/util';
 import { KeyResolutionException } from '@core/exception/custom.exceptions';
-import { KeyResolutionResponseDto, KeyResolutionResult } from '@infrastructure/entrypoint/dto';
+import { KeyResolutionResponseDto } from '@infrastructure/entrypoint/dto';
 import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
 import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 import { TransferMessage } from '@core/constant';
 
+export interface KeyResolutionResult {
+  response: KeyResolutionResponseDto;
+  correlationId: string;
+  difeExecutionId?: string;
+}
 @Injectable()
 export class KeyResolutionUseCase {
   private readonly logger: ThLogger;
@@ -197,16 +202,28 @@ export class KeyResolutionUseCase {
       ? ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
       : networkMessage;
 
+    const responseCode = this.determineResponseCode(networkCode);
+
     return {
       key,
       keyType,
-      responseCode: 'ERROR',
+      responseCode,
       message: transferMessage,
       networkCode,
       networkMessage: formattedNetworkMessage
     };
   }
 
+  private determineResponseCode(networkCode?: string): 'ERROR' | 'VALIDATION_FAILED' {
+    if (!networkCode) {
+      return 'ERROR';
+    }
+    const formatValidationErrors = ['DIFE-4000', 'DIFE-5005'];
+    if (formatValidationErrors.includes(networkCode)) {
+      return 'VALIDATION_FAILED';
+    }
+    return 'ERROR';
+  }
   private handleError(error: unknown, key: string, keyType: string, correlationId: string): KeyResolutionResponseDto {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 

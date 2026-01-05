@@ -5,6 +5,7 @@ import { ThLoggerService } from 'themis';
 import { KeyResolutionController } from '@infrastructure/entrypoint/rest/key-resolution.controller';
 import { KeyResolutionUseCase } from '@core/usecase/key-resolution.usecase';
 import { KeyResolutionResponseDto } from '@infrastructure/entrypoint/dto';
+import { KeyResolutionParamsDto } from '@infrastructure/entrypoint/dto/key-resolution-params.dto';
 
 describe('KeyResolutionController', () => {
   let controller: KeyResolutionController;
@@ -52,7 +53,7 @@ describe('KeyResolutionController', () => {
 
   describe('getKeyInformation', () => {
     it('should return key information successfully', async () => {
-      const key = '@COLOMBIA';
+      const params: KeyResolutionParamsDto = { key: '@COLOMBIA' };
       const expectedResponse: KeyResolutionResponseDto = {
         documentNumber: '1234567890',
         documentType: 'CC',
@@ -71,7 +72,7 @@ describe('KeyResolutionController', () => {
         correlationId: 'test-correlation-id'
       });
 
-      const result = await controller.getKeyInformation(key);
+      const result = await controller.getKeyInformation(params);
 
       expect(result).toEqual(expectedResponse);
       expect(mockKeyResolutionUseCase.execute).toHaveBeenCalledWith('@COLOMBIA');
@@ -79,7 +80,7 @@ describe('KeyResolutionController', () => {
     });
 
     it('should throw HttpException with 404 when key does not exist', async () => {
-      const key = '@NOEXISTE';
+      const params: KeyResolutionParamsDto = { key: '@NOEXISTE' };
       const errorResponse: KeyResolutionResponseDto = {
         key: '@NOEXISTE',
         keyType: 'O',
@@ -95,7 +96,7 @@ describe('KeyResolutionController', () => {
       });
 
       try {
-        await controller.getKeyInformation(key);
+        await controller.getKeyInformation(params);
         fail('Should have thrown HttpException');
       } catch (error) {
         expect(error).toBeInstanceOf(HttpException);
@@ -105,7 +106,7 @@ describe('KeyResolutionController', () => {
     });
 
     it('should throw HttpException with 422 when key is suspended', async () => {
-      const key = '@SUSPENDED';
+      const params: KeyResolutionParamsDto = { key: '@SUSPENDED' };
       const errorResponse: KeyResolutionResponseDto = {
         key: '@SUSPENDED',
         keyType: 'O',
@@ -121,7 +122,7 @@ describe('KeyResolutionController', () => {
       });
 
       try {
-        await controller.getKeyInformation(key);
+        await controller.getKeyInformation(params);
         fail('Should have thrown HttpException');
       } catch (error) {
         expect(error).toBeInstanceOf(HttpException);
@@ -131,7 +132,7 @@ describe('KeyResolutionController', () => {
     });
 
     it('should throw HttpException with 502 when DIFE service fails', async () => {
-      const key = '@TEST';
+      const params: KeyResolutionParamsDto = { key: '@TEST' };
       const errorResponse: KeyResolutionResponseDto = {
         key: '@TEST',
         keyType: 'O',
@@ -147,7 +148,7 @@ describe('KeyResolutionController', () => {
       });
 
       try {
-        await controller.getKeyInformation(key);
+        await controller.getKeyInformation(params);
         fail('Should have thrown HttpException');
       } catch (error) {
         expect(error).toBeInstanceOf(HttpException);
@@ -157,7 +158,7 @@ describe('KeyResolutionController', () => {
     });
 
     it('should throw HttpException with 504 when DIFE times out', async () => {
-      const key = '@TIMEOUT';
+      const params: KeyResolutionParamsDto = { key: '@TIMEOUT' };
       const errorResponse: KeyResolutionResponseDto = {
         key: '@TIMEOUT',
         keyType: 'O',
@@ -173,7 +174,7 @@ describe('KeyResolutionController', () => {
       });
 
       try {
-        await controller.getKeyInformation(key);
+        await controller.getKeyInformation(params);
         fail('Should have thrown HttpException');
       } catch (error) {
         expect(error).toBeInstanceOf(HttpException);
@@ -183,7 +184,7 @@ describe('KeyResolutionController', () => {
     });
 
     it('should throw HttpException with 500 for internal errors without networkCode', async () => {
-      const key = '@ERROR';
+      const params: KeyResolutionParamsDto = { key: '@ERROR' };
       const errorResponse: KeyResolutionResponseDto = {
         key: '@ERROR',
         keyType: 'O',
@@ -197,7 +198,7 @@ describe('KeyResolutionController', () => {
       });
 
       try {
-        await controller.getKeyInformation(key);
+        await controller.getKeyInformation(params);
         fail('Should have thrown HttpException');
       } catch (error) {
         expect(error).toBeInstanceOf(HttpException);
@@ -207,7 +208,7 @@ describe('KeyResolutionController', () => {
     });
 
     it('should handle mobile number keys', async () => {
-      const key = '3001234567';
+      const params: KeyResolutionParamsDto = { key: '3001234567' };
       const expectedResponse: KeyResolutionResponseDto = {
         documentNumber: '1234567890',
         documentType: 'CC',
@@ -226,14 +227,14 @@ describe('KeyResolutionController', () => {
         correlationId: 'test-correlation-id'
       });
 
-      const result = await controller.getKeyInformation(key);
+      const result = await controller.getKeyInformation(params);
 
       expect(result).toEqual(expectedResponse);
       expect(result.keyType).toBe('M');
     });
 
     it('should handle email keys', async () => {
-      const key = 'test@example.com';
+      const params: KeyResolutionParamsDto = { key: 'test@example.com' };
       const expectedResponse: KeyResolutionResponseDto = {
         documentNumber: '1234567890',
         documentType: 'CC',
@@ -252,14 +253,14 @@ describe('KeyResolutionController', () => {
         correlationId: 'test-correlation-id'
       });
 
-      const result = await controller.getKeyInformation(key);
+      const result = await controller.getKeyInformation(params);
 
       expect(result).toEqual(expectedResponse);
       expect(result.keyType).toBe('E');
     });
 
     it('should pass key parameter correctly to usecase', async () => {
-      const key = '@TESTKEY123';
+      const params: KeyResolutionParamsDto = { key: '@TESTKEY123' };
       const expectedResponse: KeyResolutionResponseDto = {
         documentNumber: '1234567890',
         documentType: 'CC',
@@ -278,13 +279,13 @@ describe('KeyResolutionController', () => {
         correlationId: 'test-correlation-id'
       });
 
-      await controller.getKeyInformation(key);
+      await controller.getKeyInformation(params);
 
       expect(mockKeyResolutionUseCase.execute).toHaveBeenCalledWith('@TESTKEY123');
     });
 
     it('should handle network errors from usecase', async () => {
-      const key = '@TEST';
+      const params: KeyResolutionParamsDto = { key: '@TEST' };
       const errorResponse: KeyResolutionResponseDto = {
         key: '@TEST',
         keyType: 'O',
@@ -300,7 +301,7 @@ describe('KeyResolutionController', () => {
       });
 
       try {
-        await controller.getKeyInformation(key);
+        await controller.getKeyInformation(params);
         fail('Should have thrown HttpException');
       } catch (error) {
         expect(error).toBeInstanceOf(HttpException);

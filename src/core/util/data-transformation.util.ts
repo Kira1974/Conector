@@ -64,3 +64,20 @@ function buildMaskedAccountNumber(accountNumber: string): string {
   const maskedPrefix = '*'.repeat(maskedPrefixLength);
   return `${maskedPrefix}${lastSix}`;
 }
+
+export function obfuscateKey(value: string, charsToMask: number = 3): string {
+  if (!value || value.length === 0) {
+    return '';
+  }
+
+  if (value.length <= charsToMask) {
+    const asterisks = '*'.repeat(Math.max(0, value.length - 1));
+    const lastChar = value.length > 0 ? value.slice(-1) : '';
+    return `${asterisks}${lastChar}`;
+  }
+
+  const masked = '*'.repeat(charsToMask);
+  const visible = value.slice(charsToMask);
+
+  return `${masked}${visible}`;
+}

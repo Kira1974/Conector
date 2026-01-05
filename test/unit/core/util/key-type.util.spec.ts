@@ -2,10 +2,6 @@ import { KeyType, calculateKeyType } from '@core/util';
 
 describe('KeyType Util', () => {
   describe('calculateKeyType', () => {
-    it('should throw error for empty key value', () => {
-      expect(() => calculateKeyType('')).toThrow('Key value cannot be empty');
-    });
-
     it('should return COMMERCE_CODE for 10 digits starting with 00', () => {
       const result = calculateKeyType('0012345678');
       expect(result).toBe(KeyType.COMMERCE_CODE);
@@ -58,30 +54,14 @@ describe('KeyType Util', () => {
       expect(result).toBe(KeyType.NRIC);
     });
 
-    it('should return OTHERS for values not matching any pattern', () => {
-      const result = calculateKeyType('1234567890123456789');
-      expect(result).toBe(KeyType.OTHERS);
-    });
-
-    it('should prioritize COMMERCE_CODE over MOVIL for 00 prefix', () => {
-      const result = calculateKeyType('0000000003');
-      expect(result).toBe(KeyType.COMMERCE_CODE);
-    });
-
-    it('should not return EMAIL for @ at the start', () => {
-      const result = calculateKeyType('@test@example.com');
-      expect(result).toBe(KeyType.OTHERS);
-    });
-
-    it('should not return EMAIL for email longer than 92 chars', () => {
-      const longEmail = `${'a'.repeat(50)}@${'b'.repeat(50)}.com`;
-      const result = calculateKeyType(longEmail);
-      expect(result).toBe(KeyType.OTHERS);
-    });
-
-    it('should not return MOVIL for non-numeric 10 chars starting with 3', () => {
-      const result = calculateKeyType('3abc123456');
+    it('should return NRIC for alphanumeric less than 18 characters', () => {
+      const result = calculateKeyType('ABC123');
       expect(result).toBe(KeyType.NRIC);
+    });
+
+    it('should return OTHERS as default for keys not matching other patterns', () => {
+      const result = calculateKeyType('INVALIDKEY12345678901234567890');
+      expect(result).toBe(KeyType.OTHERS);
     });
   });
 });

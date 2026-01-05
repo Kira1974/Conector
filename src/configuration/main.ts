@@ -28,7 +28,7 @@ async function bootstrap(): Promise<void> {
 
   const config = new DocumentBuilder()
     .setTitle('Charon Adapter')
-    .setDescription('Credibanco Connector')
+    .setDescription('Credibanco Adapter')
     .setVersion('1.0')
     .addTag('Key Resolution', 'Endpoint to resolve a payment key')
     .build();

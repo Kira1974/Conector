@@ -1,17 +1,27 @@
-import { Controller, Get, Param, HttpCode, HttpStatus, HttpException } from '@nestjs/common';
+import { Controller, Get, Param, HttpCode, HttpStatus, HttpException, UseInterceptors } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
+import {
+  ThLogger,
+  ThLoggerService,
+  ThLoggerComponent,
+  ThTraceEvent,
+  ThEventTypeBuilder,
+  ThHttpRequestTracingInterceptor,
+  ThHttpResponseTracingInterceptor
+} from 'themis';
 
 import { KeyResolutionUseCase } from '@core/usecase';
-import { calculateKeyType } from '@core/util';
+import { calculateKeyType, obfuscateKey } from '@core/util';
 
 import { KeyResolutionResponseDto } from '../dto';
+import { KeyResolutionParamsDto } from '../dto/key-resolution-params.dto';
 
 import { ApiKeyResolutionDocs } from './decorators/api-key-resolution-docs.decorator';
 import { KeyResolutionHttpStatusMapper } from './mappers/key-resolution-http-status.mapper';
 
 @ApiTags('Key Resolution')
 @Controller('keys')
+@UseInterceptors(ThHttpRequestTracingInterceptor, ThHttpResponseTracingInterceptor)
 export class KeyResolutionController {
   private readonly logger: ThLogger;
 
@@ -29,18 +39,15 @@ export class KeyResolutionController {
     eventType: new ThEventTypeBuilder().setDomain('key-resolution').setAction('get'),
     tags: ['key-resolution', 'dife']
   })
-  async getKeyInformation(@Param('key') key: string): Promise<KeyResolutionResponseDto> {
+  async getKeyInformation(@Param() params: KeyResolutionParamsDto): Promise<KeyResolutionResponseDto> {
+    const { key } = params;
     this.logger.log('CHARON_REQUEST', {
-      method: 'GET',
       keyType: calculateKeyType(key),
-      requestParams: JSON.stringify({ key }, null, 2)
+      key: obfuscateKey(key, 3)
     });
 
     const result = await this.keyResolutionUseCase.execute(key);
-
     const { response, correlationId, difeExecutionId } = result;
-    const eventId = correlationId;
-    const traceId = correlationId;
 
     const httpStatus =
       response.responseCode === 'SUCCESS'
@@ -49,18 +56,15 @@ export class KeyResolutionController {
 
     this.logger.log('CHARON_RESPONSE', {
       status: httpStatus,
-      eventId,
-      traceId,
       correlationId,
       externalTransactionId: difeExecutionId,
-      responseCode: response.responseCode,
-      networkCode: response.networkCode,
-      responseBody: JSON.stringify(response, null, 2)
+      responseBody: response
     });
 
     if (response.responseCode !== 'SUCCESS') {
       throw new HttpException(response, httpStatus);
     }
+
     return response;
   }
 }

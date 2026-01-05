@@ -5,7 +5,7 @@ import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
 import { KeyResolutionRequest } from '@core/model';
 import { KeyResolutionException, ExternalServiceException } from '@core/exception/custom.exceptions';
 import { KeyTypeDife } from '@core/constant';
-import { formatTimestampWithoutZ } from '@core/util';
+import { formatTimestampWithoutZ, obfuscateKey } from '@core/util';
 import { ExternalServicesConfigService } from '@config/external-services-config.service';
 import { LoggingConfigService } from '@config/logging-config.service';
 
@@ -135,7 +135,7 @@ export class DifeProvider {
       if (!response.data) {
         this.logger.error('DIFE returned empty response', {
           correlationId: request.correlationId,
-          key: request.key,
+          key: obfuscateKey(request.key, 3),
           status: response.status,
           headers: response.headers
         });
@@ -163,7 +163,7 @@ export class DifeProvider {
     } catch (error: unknown) {
       this.logger.error('Key resolution failed', {
         correlationId: request.correlationId,
-        key: request.key,
+        key: obfuscateKey(request.key, 3),
         error: error instanceof Error ? error.message : 'Unknown error'
       });
 

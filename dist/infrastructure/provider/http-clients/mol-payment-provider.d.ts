@@ -1,0 +1,35 @@
+import { ThLoggerService } from 'themis';
+import { IMolPaymentProvider } from '@core/provider';
+import { ExternalServicesConfigService } from '@config/external-services-config.service';
+import { LoggingConfigService } from '@config/logging-config.service';
+import { MolPayerConfigService } from '@config/mol-payer-config.service';
+import { ResilienceConfigService } from '../resilience-config.service';
+import { TransferRequestDto, TransferResponseDto } from '../../entrypoint/dto';
+import { MolPaymentQueryRequestDto, MolPaymentQueryResponseDto, DifeKeyResponseDto } from './dto';
+import { AuthService, HttpClientService } from './';
+export declare class MolPaymentProvider implements IMolPaymentProvider {
+    private readonly http;
+    private readonly auth;
+    private readonly loggerService;
+    private readonly resilienceConfig;
+    private readonly externalServicesConfig;
+    private readonly loggingConfig;
+    private readonly molPayerConfig;
+    private readonly logger;
+    private readonly ENABLE_HTTP_HEADERS_LOG;
+    constructor(http: HttpClientService, auth: AuthService, loggerService: ThLoggerService, resilienceConfig: ResilienceConfigService, externalServicesConfig: ExternalServicesConfigService, loggingConfig: LoggingConfigService, molPayerConfig: MolPayerConfigService);
+    createPayment(request: TransferRequestDto, keyResolution: DifeKeyResponseDto): Promise<TransferResponseDto>;
+    queryPaymentStatus(request: MolPaymentQueryRequestDto, timeout?: number): Promise<MolPaymentQueryResponseDto>;
+    private buildHeaders;
+    private handleQueryResponse;
+    private validateQueryRequest;
+    private buildQueryParams;
+    private handlePaymentResponse;
+    private toPaymentRequestDto;
+    private getPayerConfigurationFromEnv;
+    private mapKeyTypeToMol;
+    private mapIdentificationTypeToMol;
+    private mapPaymentMethodTypeToMol;
+    private logMolPaymentResponse;
+    private logMolQueryResponse;
+}

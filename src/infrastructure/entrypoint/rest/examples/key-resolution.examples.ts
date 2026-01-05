@@ -1,5 +1,4 @@
 export class KeyResolutionExamples {
-  // 200 - SUCCESS
   static readonly SUCCESS_RESPONSES = {
     alphanumericKey: {
       summary: 'Resolución de llave alfanumérica',
@@ -67,7 +66,6 @@ export class KeyResolutionExamples {
     }
   };
 
-  // 400 - BAD REQUEST
   static readonly BAD_REQUEST_RESPONSES = {
     invalidKeyFormat: {
       summary: 'Formato de llave inválido (DIFE-4000)',
@@ -96,7 +94,6 @@ export class KeyResolutionExamples {
     }
   };
 
-  // 404 - NOT FOUND
   static readonly NOT_FOUND_RESPONSES = {
     keyNotFound: {
       summary: 'La llave no existe o está cancelada (DIFE-0004)',
@@ -111,7 +108,6 @@ export class KeyResolutionExamples {
     }
   };
 
-  // 422 - UNPROCESSABLE ENTITY
   static readonly UNPROCESSABLE_ENTITY_RESPONSES = {
     keySuspendedByClient: {
       summary: 'Llave suspendida por el cliente (DIFE-0005)',
@@ -137,7 +133,6 @@ export class KeyResolutionExamples {
     }
   };
 
-  // 502 - BAD GATEWAY
   static readonly BAD_GATEWAY_RESPONSES = {
     difeUnexpectedError: {
       summary: 'Error inesperado de DIFE (DIFE-9999)',
@@ -174,7 +169,6 @@ export class KeyResolutionExamples {
     }
   };
 
-  // 504 - GATEWAY TIMEOUT
   static readonly GATEWAY_TIMEOUT_RESPONSES = {
     difeTimeout: {
       summary: 'Tiempo de respuesta agotado de DIFE (DIFE-5000)',
@@ -189,7 +183,6 @@ export class KeyResolutionExamples {
     }
   };
 
-  // 500 - INTERNAL SERVER ERROR
   static readonly INTERNAL_SERVER_ERROR_RESPONSES = {
     charonInternalError: {
       summary: 'Error interno de Charon',

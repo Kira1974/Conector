@@ -6,32 +6,26 @@ export class KeyResolutionHttpStatusMapper {
       return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
-    // 404 NOT FOUND
     if (this.isNotFoundError(networkCode)) {
       return HttpStatus.NOT_FOUND;
     }
 
-    // 400 BAD REQUEST
     if (this.isFormatValidationError(networkCode)) {
       return HttpStatus.BAD_REQUEST;
     }
 
-    // 422 UNPROCESSABLE ENTITY
     if (this.isBusinessValidationError(networkCode)) {
       return HttpStatus.UNPROCESSABLE_ENTITY;
     }
 
-    // 504 GATEWAY TIMEOUT
     if (this.isTimeoutError(networkCode)) {
       return HttpStatus.GATEWAY_TIMEOUT;
     }
 
-    // 502 BAD GATEWAY
     if (this.isServiceError(networkCode)) {
       return HttpStatus.BAD_GATEWAY;
     }
 
-    // 500 INTERNAL SERVER ERROR
     return HttpStatus.INTERNAL_SERVER_ERROR;
   }
 
