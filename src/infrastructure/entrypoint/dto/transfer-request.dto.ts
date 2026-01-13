@@ -3,9 +3,6 @@ import { Type } from 'class-transformer';
 
 export type CurrencyCode = 'COP' | 'USD' | 'EUR';
 
-/**
- * Amount details for transfer
- */
 export class AmountDto {
   @IsNumber()
   @Min(0.01)
@@ -18,9 +15,6 @@ export class AmountDto {
   currency: CurrencyCode;
 }
 
-/**
- * Transaction details for transfer
- */
 export class TransactionDto {
   @ValidateNested()
   @Type(() => AmountDto)
@@ -32,32 +26,50 @@ export class TransactionDto {
   description: string;
 }
 
-/**
- * Payee account information for transfer
- */
+export class IdentificationDto {
+  @IsString()
+  @IsOptional()
+  documentType?: string;
+
+  @IsString()
+  @IsOptional()
+  documentNumber?: string;
+}
+
 export class PayeeAccountInfoDto {
   @IsString()
   @IsNotEmpty()
   value: string;
+
+  @IsString()
+  @IsOptional()
+  type?: string;
+
+  @IsString()
+  @IsOptional()
+  number?: string;
 }
 
-/**
- * Payee details for transfer
- */
 export class PayeeDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  personType?: string;
+
+  @ValidateNested()
+  @Type(() => IdentificationDto)
+  @IsOptional()
+  identification?: IdentificationDto;
+
   @ValidateNested()
   @Type(() => PayeeAccountInfoDto)
   @IsNotEmpty()
   accountInfo: PayeeAccountInfoDto;
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  documentNumber?: string;
 }
 
-/**
- * Transaction parties for transfer
- */
 export class TransactionPartiesDto {
   @ValidateNested()
   @Type(() => PayeeDto)
@@ -65,17 +77,10 @@ export class TransactionPartiesDto {
   payee: PayeeDto;
 }
 
-/**
- * Additional data for transfer
- */
 export class AdditionalDataDto {
   [key: string]: any;
 }
 
-/**
- * Transfer Request DTO
- * Main request for creating a transfer using DIFE + MOL
- */
 export class TransferRequestDto {
   @IsString()
   @IsNotEmpty()

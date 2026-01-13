@@ -6,65 +6,8 @@ import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/
 
 import { ErrorMessageMapper, NetworkErrorInfo } from './error-message.mapper';
 
-const BREB_ACCOUNT_NUMBER_KEY = 'BREB_ACCOUNT_NUMBER';
 const DIFE_VALIDATION_ERROR_CODE_MIN = 4000;
 const DIFE_VALIDATION_ERROR_CODE_MAX = 6000;
-
-export function validatePayeeDocumentNumber(
-  request: TransferRequestDto,
-  keyResolution: DifeKeyResponseDto
-): TransferResponseDto | null {
-  const payeeDocumentNumber = request.transactionParties.payee.documentNumber;
-  if (!payeeDocumentNumber) {
-    return null;
-  }
-
-  const resolvedDocumentNumber = keyResolution.key?.person?.identification?.number;
-  if (!resolvedDocumentNumber) {
-    return null;
-  }
-
-  if (payeeDocumentNumber !== resolvedDocumentNumber) {
-    return buildValidationErrorResponse(request.transactionId, TransferMessage.DOCUMENT_MISMATCH);
-  }
-
-  return null;
-}
-
-export function validateBrebAccountNumber(
-  request: TransferRequestDto,
-  keyResolution: DifeKeyResponseDto
-): TransferResponseDto | null {
-  const brebAccountNumber = extractBrebAccountNumber(request.additionalData);
-  if (!brebAccountNumber) {
-    return null;
-  }
-
-  const resolvedPaymentMethodNumber = keyResolution.key?.payment_method?.number;
-  if (!resolvedPaymentMethodNumber) {
-    return null;
-  }
-
-  if (brebAccountNumber !== resolvedPaymentMethodNumber) {
-    return buildValidationErrorResponse(request.transactionId, TransferMessage.ACCOUNT_MISMATCH);
-  }
-
-  return null;
-}
-
-export function extractBrebAccountNumber(additionalData?: Record<string, unknown>): string | null {
-  if (!additionalData) {
-    return null;
-  }
-
-  const brebAccountNumber = additionalData[BREB_ACCOUNT_NUMBER_KEY];
-  if (!brebAccountNumber || typeof brebAccountNumber !== 'string') {
-    return null;
-  }
-
-  return brebAccountNumber;
-}
-
 const DEFAULT_DIFE_ERROR_MESSAGE = 'DIFE error';
 
 export function buildDifeErrorResponseIfAny(
@@ -77,13 +20,11 @@ export function buildDifeErrorResponseIfAny(
     const errorCode = firstError?.code;
     const errorDescription = firstError?.description || DEFAULT_DIFE_ERROR_MESSAGE;
 
-    const errorInfo: NetworkErrorInfo | null = errorCode
-      ? {
-          code: errorCode,
-          description: errorDescription,
-          source: 'DIFE'
-        }
-      : null;
+    const errorInfo: NetworkErrorInfo = {
+      code: errorCode,
+      description: errorDescription,
+      source: 'DIFE'
+    };
 
     const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
     const responseCode = determineResponseCodeFromMessage(mappedMessage);
@@ -92,88 +33,30 @@ export function buildDifeErrorResponseIfAny(
       transactionId: request.transactionId,
       responseCode,
       message: mappedMessage,
-      networkMessage: errorInfo
-        ? ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source)
-        : undefined,
-      networkCode: errorInfo?.code
-    };
-  }
-
-  const hasValidKey =
-    keyResolution.key?.key &&
-    keyResolution.key.participant &&
-    keyResolution.key.payment_method &&
-    keyResolution.key.person?.identification &&
-    keyResolution.key.person.name;
-
-  if (!hasValidKey) {
-    const errorInfo: NetworkErrorInfo = {
-      code: undefined,
-      description: 'Key resolution returned no data',
-      source: 'DIFE'
-    };
-
-    return {
-      transactionId: request.transactionId,
-      responseCode: TransferResponseCode.ERROR,
-      message: TransferMessage.KEY_RESOLUTION_ERROR,
-      networkMessage: ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source),
-      networkCode: undefined
+      networkMessage: ErrorMessageMapper.formatNetworkErrorMessage(errorDescription, 'DIFE'),
+      networkCode: errorCode
     };
   }
 
   return null;
 }
 
-function isDifeValidationErrorCode(errorCode: string): boolean {
-  const validationErrorCodes = [
-    'DIFE-0004',
-    'DIFE-0005',
-    'DIFE-0006',
-    'DIFE-0007',
-    'DIFE-0009',
-    'DIFE-0010',
-    'DIFE-0011',
-    'DIFE-0012',
-    'DIFE-0013',
-    'DIFE-0014',
-    'DIFE-0015',
-    'DIFE-0016',
-    'DIFE-0018',
-    'DIFE-4000',
-    'DIFE-4001',
-    'DIFE-5004',
-    'DIFE-5005',
-    'DIFE-5006',
-    'DIFE-5007',
-    'DIFE-5010',
-    'DIFE-5011',
-    'DIFE-5012',
-    'DIFE-5013',
-    'DIFE-5014',
-    'DIFE-5015',
-    'DIFE-5016',
-    'DIFE-5017',
-    'DIFE-5018',
-    'DIFE-5019',
-    'DIFE-5021',
-    'DIFE-5022',
-    'DIFE-5023',
-    'DIFE-5024',
-    'DIFE-5025',
-    'DIFE-5026'
-  ];
-  if (validationErrorCodes.includes(errorCode)) {
-    return true;
+export function validateKeyFormatBeforeResolution(request: TransferRequestDto): TransferResponseDto | null {
+  const keyValue = request.transactionParties.payee.accountInfo.value;
+
+  if (!keyValue || keyValue.trim() === '') {
+    return buildValidationErrorResponse(request.transactionId, TransferMessage.INVALID_KEY_FORMAT);
   }
 
-  const match = errorCode.match(/DIFE-(\d{4})/);
-  if (!match) {
-    return false;
+  const isNumericKey = /^@?\d+$/.test(keyValue);
+  const isAlphaKey = /^[A-Z]+$/.test(keyValue);
+  const isEmailKey = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(keyValue);
+
+  if (!isNumericKey && !isAlphaKey && !isEmailKey) {
+    return buildValidationErrorResponse(request.transactionId, TransferMessage.INVALID_KEY_FORMAT);
   }
 
-  const codeNumber = parseInt(match[1], 10);
-  return codeNumber >= DIFE_VALIDATION_ERROR_CODE_MIN && codeNumber < DIFE_VALIDATION_ERROR_CODE_MAX;
+  return null;
 }
 
 export function isDifeValidationError(errorMessage: string): boolean {
@@ -181,8 +64,8 @@ export function isDifeValidationError(errorMessage: string): boolean {
     return false;
   }
 
-  const difeErrorPattern = /DIFE-(\d{4})/;
-  const match = errorMessage.match(difeErrorPattern);
+  const difeErrorCodePattern = /(DIFE-\d{4})/;
+  const match = errorMessage.match(difeErrorCodePattern);
   if (!match) {
     return false;
   }
@@ -255,21 +138,8 @@ export function isMolValidationErrorByCode(errorInfo: { code?: string; source?: 
   return MOL_VALIDATION_ERROR_CODES.includes(errorInfo.code as (typeof MOL_VALIDATION_ERROR_CODES)[number]);
 }
 
-function extractDifeErrorCode(errorString: string): string | undefined {
-  const match = errorString.match(/(DIFE-\d{4})/);
-  return match ? match[1] : undefined;
-}
-
-function extractDifeErrorDescription(errorString: string): string {
-  const match = errorString.match(/DIFE-\d{4}: (.+)/);
-  return match ? match[1] : errorString;
-}
-
 export function determineResponseCodeFromMessage(message: TransferMessage): TransferResponseCode {
   switch (message) {
-    case TransferMessage.DOCUMENT_MISMATCH:
-    case TransferMessage.ACCOUNT_MISMATCH:
-      return TransferResponseCode.VALIDATION_FAILED;
     case TransferMessage.VALIDATION_FAILED:
     case TransferMessage.INVALID_KEY_FORMAT:
     case TransferMessage.INVALID_ACCOUNT_NUMBER:
@@ -291,9 +161,78 @@ function buildValidationErrorResponse(
 ): TransferResponseDto {
   return {
     transactionId,
-    responseCode: TransferResponseCode.VALIDATION_FAILED,
+    responseCode: determineResponseCodeFromMessage(message),
     message,
-    networkMessage,
-    networkCode
+    ...(networkMessage && { networkMessage }),
+    ...(networkCode && { networkCode })
   };
+}
+
+export function extractNetworkErrorInfo(errorMessage: string): { code?: string; source: 'DIFE' | 'MOL' } | null {
+  const difeMatch = errorMessage.match(/(DIFE-\d{4})/);
+  if (difeMatch) {
+    return { code: difeMatch[1], source: 'DIFE' };
+  }
+
+  const molMatch = errorMessage.match(/(MOL-\d{4})/);
+  if (molMatch) {
+    return { code: molMatch[1], source: 'MOL' };
+  }
+
+  return null;
+}
+
+export function buildAdditionalDataFromKeyResolution(keyResolution: DifeKeyResponseDto): Record<string, string> {
+  if (!keyResolution.key) {
+    return {};
+  }
+
+  const key = keyResolution.key;
+  const accountNumber = key.payment_method?.number;
+  const accountType = key.payment_method?.type;
+  const documentNumber = key.person?.identification?.number;
+  const firstName = key.person?.name?.first_name;
+  const secondName = key.person?.name?.second_name;
+  const lastName = key.person?.name?.last_name;
+  const secondLastName = key.person?.name?.second_last_name;
+  const legalName = key.person?.legal_name;
+
+  const obfuscatedName = buildObfuscatedName(firstName, secondName, lastName, secondLastName, legalName);
+
+  return {
+    ...(accountNumber && { ACCOUNT_NUMBER: accountNumber }),
+    ...(accountType && { ACCOUNT_TYPE: accountType }),
+    ...(documentNumber && { DOCUMENT_NUMBER: documentNumber }),
+    ...(obfuscatedName && { OBFUSCATED_NAME: obfuscatedName })
+  };
+}
+
+function buildObfuscatedName(
+  firstName?: string,
+  secondName?: string,
+  lastName?: string,
+  secondLastName?: string,
+  legalName?: string
+): string | null {
+  if (legalName) {
+    return obfuscateText(legalName);
+  }
+
+  const nameParts = [firstName, secondName, lastName, secondLastName].filter((part) => part && part.trim() !== '');
+
+  if (nameParts.length === 0) {
+    return null;
+  }
+
+  return nameParts.map((part) => obfuscateText(part)).join(' ');
+}
+
+function obfuscateText(text: string): string {
+  if (!text || text.length <= 3) {
+    return text;
+  }
+
+  const firstThree = text.slice(0, 3);
+  const asterisks = '*'.repeat(text.length - 3);
+  return `${firstThree}${asterisks}`;
 }
