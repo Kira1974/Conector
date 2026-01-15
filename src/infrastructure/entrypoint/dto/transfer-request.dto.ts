@@ -7,7 +7,7 @@ export class AmountDto {
   @IsNumber()
   @Min(0.01)
   @IsNotEmpty()
-  value: number;
+  total: number;
 
   @IsString()
   @IsNotEmpty()
@@ -15,32 +15,28 @@ export class AmountDto {
   currency: CurrencyCode;
 }
 
-export class TransactionDto {
+export class PayerAccountDto {
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @IsString()
+  @IsNotEmpty()
+  number: string;
+}
+
+export class PayerDto {
   @ValidateNested()
-  @Type(() => AmountDto)
+  @Type(() => PayerAccountDto)
   @IsNotEmpty()
-  amount: AmountDto;
-
-  @IsString()
-  @IsNotEmpty()
-  description: string;
+  account: PayerAccountDto;
 }
 
-export class IdentificationDto {
-  @IsString()
-  @IsOptional()
-  documentType?: string;
-
-  @IsString()
-  @IsOptional()
-  documentNumber?: string;
+export class PayeeAccountDetailDto {
+  [key: string]: any;
 }
 
-export class PayeeAccountInfoDto {
-  @IsString()
-  @IsNotEmpty()
-  value: string;
-
+export class PayeeAccountDto {
   @IsString()
   @IsOptional()
   type?: string;
@@ -48,6 +44,10 @@ export class PayeeAccountInfoDto {
   @IsString()
   @IsOptional()
   number?: string;
+
+  @IsObject()
+  @IsOptional()
+  detail?: PayeeAccountDetailDto;
 }
 
 export class PayeeDto {
@@ -59,44 +59,56 @@ export class PayeeDto {
   @IsOptional()
   personType?: string;
 
-  @ValidateNested()
-  @Type(() => IdentificationDto)
+  @IsString()
   @IsOptional()
-  identification?: IdentificationDto;
+  documentType?: string;
+
+  @IsString()
+  @IsOptional()
+  documentNumber?: string;
 
   @ValidateNested()
-  @Type(() => PayeeAccountInfoDto)
+  @Type(() => PayeeAccountDto)
   @IsNotEmpty()
-  accountInfo: PayeeAccountInfoDto;
-}
-
-export class TransactionPartiesDto {
-  @ValidateNested()
-  @Type(() => PayeeDto)
-  @IsNotEmpty()
-  payee: PayeeDto;
+  account: PayeeAccountDto;
 }
 
 export class AdditionalDataDto {
   [key: string]: any;
 }
 
-export class TransferRequestDto {
+export class TransactionDto {
   @IsString()
   @IsNotEmpty()
-  transactionId: string;
+  id: string;
 
   @ValidateNested()
-  @Type(() => TransactionDto)
+  @Type(() => AmountDto)
   @IsNotEmpty()
-  transaction: TransactionDto;
+  amount: AmountDto;
+
+  @IsString()
+  @IsNotEmpty()
+  description: string;
 
   @ValidateNested()
-  @Type(() => TransactionPartiesDto)
+  @Type(() => PayerDto)
+  @IsOptional()
+  payer?: PayerDto;
+
+  @ValidateNested()
+  @Type(() => PayeeDto)
   @IsNotEmpty()
-  transactionParties: TransactionPartiesDto;
+  payee: PayeeDto;
 
   @IsObject()
   @IsOptional()
   additionalData?: AdditionalDataDto;
+}
+
+export class TransferRequestDto {
+  @ValidateNested()
+  @Type(() => TransactionDto)
+  @IsNotEmpty()
+  transaction: TransactionDto;
 }

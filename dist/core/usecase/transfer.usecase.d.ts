@@ -12,12 +12,12 @@ export declare class TransferUseCase {
     private static readonly TRANSFER_TIMEOUT_SECONDS;
     constructor(difeProvider: IDifeProvider, paymentProvider: IMolPaymentProvider, pendingTransferService: PendingTransferService, loggerService: ThLoggerService);
     executeTransfer(request: TransferRequestDto): Promise<TransferResponseDto>;
-    private validateRequest;
+    private extractKeyResolutionFromAdditionalData;
+    private parsePayeeName;
+    private isKeyResolutionComplete;
     private buildLogContext;
     private buildKeyResolutionRequest;
     private validatePaymentResponse;
     private waitForFinalState;
     private handleTransferError;
-    private buildErrorResponse;
-    private extractNetworkErrorMessageOnly;
 }

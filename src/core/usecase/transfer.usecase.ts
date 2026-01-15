@@ -63,15 +63,15 @@ export class TransferUseCase {
 
       if (this.isKeyResolutionComplete(keyResolutionFromRequest)) {
         this.logger.log('Using keyResolution from request additionalData, skipping DIFE call', {
-          transactionId: request.transactionId,
-          correlationId: request.transactionId
+          transactionId: request.transaction.id,
+          correlationId: request.transaction.id
         });
         keyResolution = keyResolutionFromRequest;
         keyResolutionSource = 'FROM_REQUEST';
       } else {
         this.logger.log('keyResolution not provided or incomplete in additionalData, calling DIFE', {
-          transactionId: request.transactionId,
-          correlationId: request.transactionId,
+          transactionId: request.transaction.id,
+          correlationId: request.transaction.id,
           hasPartialData: !!keyResolutionFromRequest
         });
         const keyResolutionRequest = this.buildKeyResolutionRequest(request);
@@ -101,35 +101,43 @@ export class TransferUseCase {
 
       return this.waitForFinalState(request, paymentResponse, paymentValidation.endToEndId, startedAt);
     } catch (error: unknown) {
-      return this.handleTransferError(error, request.transactionId);
+      return this.handleTransferError(error, request.transaction.id);
     }
   }
 
   private extractKeyResolutionFromAdditionalData(request: TransferRequestDto): DifeKeyResponseDto | null {
-    const additionalData = request.additionalData;
-    if (!additionalData) {
+    // Try to extract from payee.account.detail first (new structure)
+    const accountDetail = request.transaction.payee.account.detail;
+
+    // Fallback to additionalData (legacy support)
+    const additionalData = request.transaction.additionalData;
+
+    const sourceData = accountDetail || additionalData;
+    if (!sourceData) {
       return null;
     }
 
-    const correlationId = additionalData['BREB_DIFE_CORRELATION_ID'] as string | undefined;
-    const traceId = additionalData['BREB_DIFE_TRACE_ID'] as string | undefined;
-    const keyType = additionalData['BREB_KEY_TYPE'] as string | undefined;
-    const participantNit = additionalData['BREB_PARTICIPANT_NIT'] as string | undefined;
-    const participantSpbvi = additionalData['BREB_PARTICIPANT_SPBVI'] as string | undefined;
+    const correlationId = sourceData['BREB_DIFE_CORRELATION_ID'] as string | undefined;
+    const traceId = sourceData['BREB_DIFE_TRACE_ID'] as string | undefined;
+    const keyType = (sourceData['BREB_KEY_TYPE'] || sourceData['KEY_TYPE']) as string | undefined;
+    const participantNit = (sourceData['BREB_PARTICIPANT_NIT'] || sourceData['PARTICIPANT_NIT']) as string | undefined;
+    const participantSpbvi = (sourceData['BREB_PARTICIPANT_SPBVI'] || sourceData['PARTICIPANT_SPBVI']) as
+      | string
+      | undefined;
 
     if (!correlationId || !keyType || !participantNit || !participantSpbvi) {
       return null;
     }
 
-    const keyValue = request.transactionParties.payee.accountInfo.value;
-    const accountType = request.transactionParties.payee.accountInfo.type;
-    const accountNumber = request.transactionParties.payee.accountInfo.number;
-    const documentType = request.transactionParties.payee.identification?.documentType;
-    const documentNumber = request.transactionParties.payee.identification?.documentNumber;
-    const payeeName = request.transactionParties.payee.name;
-    const personType = request.transactionParties.payee.personType;
+    const keyValue = sourceData['KEY_VALUE'] as string | undefined;
+    const accountType = request.transaction.payee.account.type;
+    const accountNumber = request.transaction.payee.account.number;
+    const documentType = request.transaction.payee.documentType;
+    const documentNumber = request.transaction.payee.documentNumber;
+    const payeeName = request.transaction.payee.name;
+    const personType = request.transaction.payee.personType;
 
-    if (!accountType || !accountNumber) {
+    if (!accountType || !accountNumber || !keyValue) {
       return null;
     }
 
@@ -237,14 +245,15 @@ export class TransferUseCase {
 
   private buildKeyResolutionRequest(request: TransferRequestDto): KeyResolutionRequest {
     const correlationId = generateCorrelationId();
-    const key = request.transactionParties.payee.accountInfo.value;
+    const keyValue = request.transaction.payee.account.detail?.['KEY_VALUE'] as string | undefined;
+    const key = keyValue || '';
     const keyType = calculateKeyType(key);
 
     return {
       correlationId,
       key,
       keyType,
-      transactionId: request.transactionId
+      transactionId: request.transaction.id
     };
   }
 
@@ -263,11 +272,11 @@ export class TransferUseCase {
 
     if (!endToEndId || endToEndId.trim() === '') {
       this.logger.error('Missing END_TO_END in payment response', {
-        ...this.buildLogContext(request.transactionId)
+        ...this.buildLogContext(request.transaction.id)
       });
       return {
         errorResponse: {
-          transactionId: request.transactionId,
+          transactionId: request.transaction.id,
           responseCode: TransferResponseCode.ERROR,
           message: TransferMessage.PAYMENT_PROCESSING_ERROR
         }
@@ -284,17 +293,17 @@ export class TransferUseCase {
     startedAt: number
   ): Promise<TransferResponseDto> {
     this.logger.log('Waiting for transfer confirmation', {
-      eventId: request.transactionId,
-      traceId: request.transactionId,
+      eventId: request.transaction.id,
+      traceId: request.transaction.id,
       correlationId: endToEndId,
-      transactionId: request.transactionId,
+      transactionId: request.transaction.id,
       endToEndId,
       timeoutSeconds: TransferUseCase.TRANSFER_TIMEOUT_SECONDS
     });
 
     try {
       const confirmationResponse = await this.pendingTransferService.waitForConfirmation(
-        request.transactionId,
+        request.transaction.id,
         endToEndId,
         startedAt
       );
@@ -302,7 +311,7 @@ export class TransferUseCase {
       const isApproved = confirmationResponse.responseCode === TransferResponseCode.APPROVED;
 
       return {
-        transactionId: request.transactionId,
+        transactionId: request.transaction.id,
         responseCode: confirmationResponse.responseCode,
         message: isApproved ? TransferMessage.PAYMENT_APPROVED : TransferMessage.PAYMENT_DECLINED,
         networkMessage: confirmationResponse.networkMessage,
@@ -314,16 +323,16 @@ export class TransferUseCase {
       const timeoutMessage = timeoutError instanceof Error ? timeoutError.message : DEFAULT_TIMEOUT_MESSAGE;
 
       this.logger.warn('Transfer confirmation timeout (controlled)', {
-        eventId: request.transactionId,
-        traceId: request.transactionId,
+        eventId: request.transaction.id,
+        traceId: request.transaction.id,
         correlationId: endToEndId,
-        transactionId: request.transactionId,
+        transactionId: request.transaction.id,
         endToEndId,
         error: timeoutMessage
       });
 
       return {
-        transactionId: request.transactionId,
+        transactionId: request.transaction.id,
         responseCode: TransferResponseCode.PENDING,
         message: TransferMessage.PAYMENT_PENDING,
         networkMessage: undefined,

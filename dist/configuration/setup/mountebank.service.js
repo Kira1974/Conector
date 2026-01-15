@@ -319,6 +319,103 @@ let MountebankService = MountebankService_1 = class MountebankService {
                 }
             }
         }));
+        difeStubs.push(this.createDifeSuccessStub('3001234567', 'dife-execution-id-mobile', 'dife-trace-id-mobile', {
+            type: 'M',
+            participant: { nit: '12345678', spbvi: 'CRB' },
+            payment_method: { type: 'CAHO', number: '9876543210987' },
+            person: {
+                type: 'N',
+                identification: { type: 'CC', number: '1098765432' },
+                name: {
+                    first_name: 'Ana',
+                    second_name: 'Maria',
+                    last_name: 'Rodriguez',
+                    second_last_name: 'Lopez'
+                }
+            }
+        }));
+        difeStubs.push(this.createDifeSuccessStub('TEST@EXAMPLE.COM', 'dife-execution-id-email', 'dife-trace-id-email', {
+            type: 'E',
+            participant: { nit: '12345678', spbvi: 'CRB' },
+            payment_method: { type: 'CCTE', number: '5555444433332222' },
+            person: {
+                type: 'N',
+                identification: { type: 'CE', number: '987654321' },
+                name: {
+                    first_name: 'Carlos',
+                    last_name: 'Mendez'
+                }
+            }
+        }));
+        difeStubs.push(this.createDifeSuccessStub('0012345678', 'dife-execution-id-business', 'dife-trace-id-business', {
+            type: 'B',
+            participant: { nit: '900123456', spbvi: 'CRB' },
+            payment_method: { type: 'CCTE', number: '1111222233334444' },
+            person: {
+                type: 'L',
+                identification: { type: 'NIT', number: '900123456' },
+                name: {
+                    first_name: 'COMERCIO EJEMPLO SAS',
+                    last_name: ''
+                }
+            }
+        }));
+        difeStubs.push(this.createDifeSuccessStub('1234567890', 'dife-execution-id-nric', 'dife-trace-id-nric', {
+            type: 'NRIC',
+            participant: { nit: '12345678', spbvi: 'CRB' },
+            payment_method: { type: 'DBMO', number: '7777888899990000' },
+            person: {
+                type: 'N',
+                identification: { type: 'CC', number: '1234567890' },
+                name: {
+                    first_name: 'Pedro',
+                    second_name: 'Luis',
+                    last_name: 'Gonzalez',
+                    second_last_name: 'Torres'
+                }
+            }
+        }));
+        difeStubs.push(this.createDifeSuccessStub('@CORRIENTE', 'dife-execution-id-ccte', 'dife-trace-id-ccte', {
+            type: 'O',
+            participant: { nit: '12345678', spbvi: 'CRB' },
+            payment_method: { type: 'CCTE', number: '6666555544443333' },
+            person: {
+                type: 'N',
+                identification: { type: 'CC', number: '5678901234' },
+                name: {
+                    first_name: 'Laura',
+                    second_name: 'Sofia',
+                    last_name: 'Martinez',
+                    second_last_name: 'Ramirez'
+                }
+            }
+        }));
+        difeStubs.push(this.createDifeSuccessStub('INCLUSIVO@BANCO.COM', 'dife-execution-id-dbmi', 'dife-trace-id-dbmi', {
+            type: 'E',
+            participant: { nit: '12345678', spbvi: 'CRB' },
+            payment_method: { type: 'DBMI', number: '4444333322221111' },
+            person: {
+                type: 'N',
+                identification: { type: 'PPT', number: 'PPT123456' },
+                name: {
+                    first_name: 'Miguel',
+                    last_name: 'Rojas'
+                }
+            }
+        }));
+        difeStubs.push(this.createDifeSuccessStub('3209876543', 'dife-execution-id-dord', 'dife-trace-id-dord', {
+            type: 'M',
+            participant: { nit: '12345678', spbvi: 'TFY' },
+            payment_method: { type: 'DORD', number: '8888999900001111' },
+            person: {
+                type: 'N',
+                identification: { type: 'PAS', number: 'PAS987654' },
+                name: {
+                    first_name: 'Sofia',
+                    last_name: 'Diaz'
+                }
+            }
+        }));
         if (!this.buildStub) {
             throw new Error('Mountebank no está disponible');
         }

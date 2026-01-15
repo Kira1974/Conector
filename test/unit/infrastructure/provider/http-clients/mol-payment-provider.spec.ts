@@ -120,22 +120,24 @@ describe('MolPaymentProvider', () => {
 
   describe('createPayment', () => {
     const mockRequest: TransferRequestDto = {
-      transactionId: 'test-transaction-id',
       transaction: {
+        id: 'test-transaction-id',
         amount: {
-          value: 100000,
+          total: 100000,
           currency: 'COP'
         },
-        description: 'Test payment'
-      },
-      transactionParties: {
+        description: 'Test payment',
         payee: {
-          accountInfo: {
-            value: 'john@doe.com'
+          account: {
+            type: 'EMAIL',
+            number: 'john@doe.com',
+            detail: {
+              KEY_VALUE: 'john@doe.com'
+            }
           }
-        }
-      },
-      additionalData: {}
+        },
+        additionalData: {}
+      }
     };
 
     const mockKeyResolution: DifeKeyResponseDto = {

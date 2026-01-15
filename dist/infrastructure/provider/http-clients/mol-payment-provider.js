@@ -43,15 +43,15 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
             const url = `${baseUrl}/v1/payment`;
             const dto = this.toPaymentRequestDto(request, keyResolution);
             this.logger.log('Creating MOL payment', {
-                internalId: request.transactionId,
-                value: request.transaction.amount.value,
+                internalId: request.transaction.id,
+                value: request.transaction.amount.total,
                 baseUrl
             });
             let headers = await this.buildHeaders(baseUrl);
             const timeout = this.resilienceConfig.getMolTimeout();
-            const molEventId = request.transactionId;
-            const molTraceId = request.transactionId;
-            const molRequestCorrelationId = dto.internal_id || request.transactionId;
+            const molEventId = request.transaction.id;
+            const molTraceId = request.transaction.id;
+            const molRequestCorrelationId = dto.internal_id || request.transaction.id;
             const requestLog = (0, network_log_util_1.buildNetworkRequestLog)({
                 url,
                 method: 'POST',
@@ -59,7 +59,7 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 eventId: molEventId,
                 traceId: molTraceId,
                 correlationId: molRequestCorrelationId,
-                transactionId: request.transactionId,
+                transactionId: request.transaction.id,
                 headers,
                 enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
             });
@@ -70,12 +70,12 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 timeout
             });
             const endToEndId = response.data?.end_to_end_id;
-            const molResponseCorrelationId = endToEndId || dto.internal_id || request.transactionId;
+            const molResponseCorrelationId = endToEndId || dto.internal_id || request.transaction.id;
             this.logMolPaymentResponse(response, {
                 eventId: molEventId,
                 traceId: molTraceId,
                 correlationId: molResponseCorrelationId,
-                transactionId: request.transactionId,
+                transactionId: request.transaction.id,
                 internalId: dto.internal_id,
                 endToEndId
             });
@@ -84,7 +84,7 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                     eventId: molEventId,
                     traceId: molTraceId,
                     correlationId: molRequestCorrelationId,
-                    transactionId: request.transactionId,
+                    transactionId: request.transaction.id,
                     status: response.status
                 });
                 this.auth.clearCache();
@@ -94,12 +94,12 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                     timeout
                 });
                 const retryEndToEndId = response.data?.end_to_end_id;
-                const retryMolResponseCorrelationId = retryEndToEndId || dto.internal_id || request.transactionId;
+                const retryMolResponseCorrelationId = retryEndToEndId || dto.internal_id || request.transaction.id;
                 this.logMolPaymentResponse(response, {
                     eventId: molEventId,
                     traceId: molTraceId,
                     correlationId: retryMolResponseCorrelationId,
-                    transactionId: request.transactionId,
+                    transactionId: request.transaction.id,
                     internalId: dto.internal_id,
                     endToEndId: retryEndToEndId,
                     retry: true
@@ -109,13 +109,13 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
         }
         catch (error) {
             this.logger.error('Payment creation failed', {
-                correlationId: request.transactionId,
+                correlationId: request.transaction.id,
                 error: error instanceof Error ? error.message : 'Unknown error'
             });
             if (error instanceof custom_exceptions_1.PaymentProcessingException || error instanceof custom_exceptions_1.ExternalServiceException) {
                 throw error;
             }
-            throw new custom_exceptions_1.PaymentProcessingException(error instanceof Error ? error.message : 'Unknown error occurred', request.transactionId || '');
+            throw new custom_exceptions_1.PaymentProcessingException(error instanceof Error ? error.message : 'Unknown error occurred', request.transaction.id || '');
         }
     }
     async queryPaymentStatus(request, timeout) {
@@ -271,29 +271,103 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
         return params;
     }
     handlePaymentResponse(response, request, keyResolution) {
-        if (response.status >= 400) {
+        const difeExecutionId = keyResolution.execution_id || '';
+        const molExecutionId = response.data?.execution_id || '';
+        const endToEndId = response.data?.end_to_end_id;
+        const errorCode = response.data?.error?.code || response.data?.errors?.[0]?.code || '';
+        const errorMessage = response.data?.error?.description || response.data?.error?.message || '';
+        const additionalData = {
+            [model_1.AdditionalDataKey.END_TO_END]: endToEndId,
+            [model_1.AdditionalDataKey.DIFE_EXECUTION_ID]: difeExecutionId,
+            [model_1.AdditionalDataKey.MOL_EXECUTION_ID]: molExecutionId
+        };
+        if (keyResolution.key) {
+            if (keyResolution.key.person?.identification?.number) {
+                additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
+            }
+            const firstName = keyResolution.key.person?.name?.first_name || '';
+            const lastName = keyResolution.key.person?.name?.last_name || '';
+            const fullName = [firstName, lastName].filter(Boolean).join(' ');
+            if (fullName) {
+                additionalData.OBFUSCATED_NAME = this.obfuscateName(fullName);
+            }
+            else if (keyResolution.key.person?.legal_name) {
+                additionalData.OBFUSCATED_NAME = this.obfuscateName(keyResolution.key.person.legal_name);
+            }
+            if (keyResolution.key.payment_method?.number) {
+                additionalData.ACCOUNT_NUMBER = this.obfuscateAccountNumber(keyResolution.key.payment_method.number);
+            }
+            if (keyResolution.key.payment_method?.type) {
+                additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
+            }
+        }
+        if (errorCode) {
+            additionalData.NETWORK_CODE = errorCode;
+        }
+        if (errorMessage) {
+            additionalData.NETWORK_MESSAGE = errorMessage;
+        }
+        if (response.status >= 400 && response.status < 500) {
             let errorDescription = '';
             if (response.data?.errors && response.data.errors.length > 0) {
                 errorDescription = response.data.errors.map((e) => `${e.code}: ${e.description}`).join(', ');
             }
             else if (response.data?.error) {
-                errorDescription = response.data.error.description || response.data.error.message || 'Unknown error';
+                errorDescription = response.data.error.description || response.data.error.message || 'Validation error';
             }
             else {
                 errorDescription = `HTTP ${response.status} error`;
             }
-            this.logger.error('MOL API returned HTTP error', {
-                internalId: request.transactionId,
+            this.logger.error('MOL API returned client error', {
+                internalId: request.transaction.id,
                 httpStatus: response.status,
-                errorCode: response.data?.error?.code || response.data?.errors?.[0]?.code,
+                errorCode,
                 errorId: response.data?.error?.id,
                 error: errorDescription
             });
-            throw new custom_exceptions_1.PaymentProcessingException(errorDescription, request.transactionId || '');
+            const isValidationError = this.isValidationErrorCode(errorCode) || response.status === 400;
+            const responseCode = isValidationError ? dto_1.TransferResponseCode.VALIDATION_FAILED : dto_1.TransferResponseCode.REJECTED_BY_PROVIDER;
+            const message = isValidationError ? constant_1.TransferMessage.VALIDATION_ERROR : constant_1.TransferMessage.TRANSACTION_REJECTED;
+            return {
+                transactionId: request.transaction.id,
+                responseCode,
+                message,
+                networkMessage: errorMessage || errorDescription,
+                networkCode: errorCode,
+                externalTransactionId: endToEndId,
+                additionalData
+            };
+        }
+        if (response.status >= 500) {
+            let errorDescription = '';
+            if (response.data?.errors && response.data.errors.length > 0) {
+                errorDescription = response.data.errors.map((e) => `${e.code}: ${e.description}`).join(', ');
+            }
+            else if (response.data?.error) {
+                errorDescription = response.data.error.description || response.data.error.message || 'Provider error';
+            }
+            else {
+                errorDescription = `HTTP ${response.status} error`;
+            }
+            this.logger.error('MOL API returned server error', {
+                internalId: request.transaction.id,
+                httpStatus: response.status,
+                errorCode,
+                errorId: response.data?.error?.id,
+                error: errorDescription
+            });
+            return {
+                transactionId: request.transaction.id,
+                responseCode: dto_1.TransferResponseCode.PROVIDER_ERROR,
+                message: constant_1.TransferMessage.PROVIDER_ERROR,
+                networkMessage: errorMessage || errorDescription,
+                networkCode: errorCode,
+                externalTransactionId: endToEndId,
+                additionalData
+            };
         }
         if (response.data?.status === 'ERROR') {
             let errorDescription = '';
-            const errorCode = response.data?.error?.code || response.data?.errors?.[0]?.code;
             if (response.data?.errors && response.data.errors.length > 0) {
                 errorDescription = response.data.errors.map((e) => `${e.code}: ${e.description}`).join(', ');
             }
@@ -305,40 +379,92 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 errorDescription = 'Unknown API error';
             }
             this.logger.error('MOL API returned error status', {
-                internalId: request.transactionId,
+                internalId: request.transaction.id,
                 errorCode,
                 error: errorDescription
             });
-            throw new custom_exceptions_1.PaymentProcessingException(errorDescription, request.transactionId || '');
+            return {
+                transactionId: request.transaction.id,
+                responseCode: dto_1.TransferResponseCode.ERROR,
+                message: constant_1.TransferMessage.PAYMENT_PROCESSING_ERROR,
+                networkMessage: errorMessage || errorDescription,
+                networkCode: errorCode,
+                externalTransactionId: endToEndId,
+                additionalData
+            };
         }
         if (response.data?.error) {
             const errorDescription = response.data.error.description || response.data.error.message || 'MOL API error';
             this.logger.error('MOL API returned error object', {
-                internalId: request.transactionId,
+                internalId: request.transaction.id,
                 errorCode: response.data.error.code,
                 errorId: response.data.error.id,
                 error: errorDescription
             });
-            throw new custom_exceptions_1.PaymentProcessingException(errorDescription, request.transactionId || '');
+            return {
+                transactionId: request.transaction.id,
+                responseCode: dto_1.TransferResponseCode.ERROR,
+                message: constant_1.TransferMessage.PAYMENT_PROCESSING_ERROR,
+                networkMessage: errorDescription,
+                networkCode: response.data.error.code,
+                externalTransactionId: endToEndId,
+                additionalData
+            };
         }
-        const difeExecutionId = keyResolution.execution_id || '';
-        const molExecutionId = response.data.execution_id || '';
-        const isSuccess = response.data.status === 'PROCESSING' ||
-            response.data.status === 'COMPLETED' ||
-            response.data.status === 'PENDING';
+        const molStatus = response.data?.status;
+        let responseCode;
+        let message;
+        if (molStatus === 'COMPLETED' || molStatus === 'PROCESSING') {
+            responseCode = dto_1.TransferResponseCode.APPROVED;
+            message = constant_1.TransferMessage.PAYMENT_APPROVED;
+        }
+        else if (molStatus === 'PENDING') {
+            responseCode = dto_1.TransferResponseCode.PENDING;
+            message = constant_1.TransferMessage.PAYMENT_PENDING;
+        }
+        else {
+            this.logger.warn('MOL API returned unknown status', {
+                internalId: request.transaction.id,
+                status: molStatus
+            });
+            responseCode = dto_1.TransferResponseCode.ERROR;
+            message = constant_1.TransferMessage.PAYMENT_PROCESSING_ERROR;
+        }
         return {
-            transactionId: request.transactionId,
-            responseCode: isSuccess ? dto_1.TransferResponseCode.APPROVED : dto_1.TransferResponseCode.ERROR,
-            message: isSuccess ? constant_1.TransferMessage.PAYMENT_INITIATED : constant_1.TransferMessage.PAYMENT_PROCESSING_ERROR,
+            transactionId: request.transaction.id,
+            responseCode,
+            message,
             networkMessage: undefined,
             networkCode: undefined,
-            externalTransactionId: response.data.end_to_end_id,
-            additionalData: {
-                [model_1.AdditionalDataKey.END_TO_END]: response.data.end_to_end_id,
-                [model_1.AdditionalDataKey.DIFE_EXECUTION_ID]: difeExecutionId,
-                [model_1.AdditionalDataKey.MOL_EXECUTION_ID]: molExecutionId
-            }
+            externalTransactionId: endToEndId,
+            additionalData
         };
+    }
+    isValidationErrorCode(errorCode) {
+        const validationErrorCodes = [
+            'DIFE-4000', 'DIFE-4001', 'DIFE-5005',
+            'DIFE-0007', 'DIFE-5004', 'DIFE-5016', 'DIFE-5018', 'DIFE-5019',
+            'MOL-4007', 'MOL-4010',
+            'MOL-5005'
+        ];
+        return validationErrorCodes.includes(errorCode);
+    }
+    obfuscateName(name) {
+        const parts = name.split(' ').filter(Boolean);
+        return parts
+            .map((part) => {
+            if (part.length <= 3) {
+                return part.charAt(0) + '*'.repeat(part.length - 1);
+            }
+            return part.substring(0, 3) + '*'.repeat(part.length - 3);
+        })
+            .join(' ');
+    }
+    obfuscateAccountNumber(accountNumber) {
+        if (accountNumber.length <= 4) {
+            return accountNumber;
+        }
+        return '****' + accountNumber.slice(-4);
     }
     toPaymentRequestDto(request, keyResolution) {
         const currency = request.transaction.amount.currency;
@@ -395,7 +521,7 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 T110: now,
                 T120: now
             },
-            transaction_amount: request.transaction.amount.value.toFixed(2),
+            transaction_amount: request.transaction.amount.total.toFixed(2),
             transaction_type: 'BREB'
         };
     }

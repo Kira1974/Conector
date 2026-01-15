@@ -60,7 +60,7 @@ ErrorMessageMapper.DIFE_ERROR_CODE_MAP = {
     'DIFE-0003': transfer_message_enum_1.TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-0004': transfer_message_enum_1.TransferMessage.KEY_NOT_FOUND_OR_CANCELED,
     'DIFE-0005': transfer_message_enum_1.TransferMessage.KEY_SUSPENDED,
-    'DIFE-0006': transfer_message_enum_1.TransferMessage.KEY_SUSPENDED,
+    'DIFE-0006': transfer_message_enum_1.TransferMessage.KEY_SUSPENDED_BY_PARTICIPANT,
     'DIFE-0007': transfer_message_enum_1.TransferMessage.VALIDATION_FAILED,
     'DIFE-0008': transfer_message_enum_1.TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-0009': transfer_message_enum_1.TransferMessage.VALIDATION_FAILED,
@@ -115,7 +115,8 @@ ErrorMessageMapper.DIFE_ERROR_CODE_MAP = {
 ErrorMessageMapper.MOL_ERROR_CODE_MAP = {
     '403': transfer_message_enum_1.TransferMessage.PAYMENT_REJECTED,
     '400': transfer_message_enum_1.TransferMessage.VALIDATION_FAILED,
-    '500': transfer_message_enum_1.TransferMessage.PAYMENT_NETWORK_ERROR,
+    '500': transfer_message_enum_1.TransferMessage.PROVIDER_ERROR,
+    'MOL-5000': transfer_message_enum_1.TransferMessage.PROVIDER_ERROR,
     'MOL-5005': transfer_message_enum_1.TransferMessage.VALIDATION_FAILED,
     'MOL-4009': transfer_message_enum_1.TransferMessage.VALIDATION_FAILED,
     'MOL-4008': transfer_message_enum_1.TransferMessage.VALIDATION_FAILED,

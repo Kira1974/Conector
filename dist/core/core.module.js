@@ -12,14 +12,15 @@ const provider_module_1 = require("../infrastructure/provider/provider.module");
 const confirmation_usecase_1 = require("./usecase/confirmation.usecase");
 const transfer_usecase_1 = require("./usecase/transfer.usecase");
 const pending_transfer_service_1 = require("./usecase/pending-transfer.service");
+const key_resolution_usecase_1 = require("./usecase/key-resolution.usecase");
 let CoreModule = class CoreModule {
 };
 exports.CoreModule = CoreModule;
 exports.CoreModule = CoreModule = __decorate([
     (0, common_1.Module)({
         imports: [provider_module_1.ProviderModule],
-        providers: [confirmation_usecase_1.ConfirmationUseCase, transfer_usecase_1.TransferUseCase, pending_transfer_service_1.PendingTransferService],
-        exports: [confirmation_usecase_1.ConfirmationUseCase, transfer_usecase_1.TransferUseCase, pending_transfer_service_1.PendingTransferService]
+        providers: [confirmation_usecase_1.ConfirmationUseCase, transfer_usecase_1.TransferUseCase, pending_transfer_service_1.PendingTransferService, key_resolution_usecase_1.KeyResolutionUseCase],
+        exports: [confirmation_usecase_1.ConfirmationUseCase, transfer_usecase_1.TransferUseCase, pending_transfer_service_1.PendingTransferService, key_resolution_usecase_1.KeyResolutionUseCase]
     })
 ], CoreModule);
 //# sourceMappingURL=core.module.js.map

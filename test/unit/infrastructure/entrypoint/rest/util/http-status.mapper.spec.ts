@@ -11,10 +11,16 @@ describe('HttpStatusMapper', () => {
       expect(result).toBe(200);
     });
 
-    it('should map PENDING to HTTP 200', () => {
-      const result = HttpStatusMapper.mapResponseCodeToHttpStatus(TransferResponseCode.PENDING);
+    it('should map SUCCESSFUL to HTTP 200', () => {
+      const result = HttpStatusMapper.mapResponseCodeToHttpStatus(TransferResponseCode.SUCCESSFUL);
       expect(result).toBe(HttpStatus.OK);
       expect(result).toBe(200);
+    });
+
+    it('should map PENDING to HTTP 201', () => {
+      const result = HttpStatusMapper.mapResponseCodeToHttpStatus(TransferResponseCode.PENDING);
+      expect(result).toBe(HttpStatus.CREATED);
+      expect(result).toBe(201);
     });
 
     it('should map VALIDATION_FAILED to HTTP 400', () => {
@@ -33,6 +39,12 @@ describe('HttpStatusMapper', () => {
       const result = HttpStatusMapper.mapResponseCodeToHttpStatus(TransferResponseCode.ERROR);
       expect(result).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
       expect(result).toBe(500);
+    });
+
+    it('should map PROVIDER_ERROR to HTTP 500', () => {
+      const result = HttpStatusMapper.mapResponseCodeToHttpStatus(TransferResponseCode.PROVIDER_ERROR);
+      expect(result).toBe(HttpStatus.BAD_GATEWAY);
+      expect(result).toBe(502);
     });
 
     it('should return HTTP 500 for unknown response codes', () => {

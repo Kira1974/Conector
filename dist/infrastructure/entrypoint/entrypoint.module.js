@@ -15,13 +15,14 @@ const health_controller_1 = require("./rest/health.controller");
 const transfer_confirmation_controller_1 = require("./rest/transfer-confirmation.controller");
 const global_exception_filter_1 = require("./rest/interceptors/global-exception.filter");
 const global_validation_pipe_1 = require("./rest/interceptors/global-validation.pipe");
+const key_resolution_controller_1 = require("./rest/key-resolution.controller");
 let EntrypointModule = class EntrypointModule {
 };
 exports.EntrypointModule = EntrypointModule;
 exports.EntrypointModule = EntrypointModule = __decorate([
     (0, common_1.Module)({
         imports: [core_module_1.CoreModule],
-        controllers: [transfer_controller_1.TransferController, transfer_confirmation_controller_1.TransferConfirmationController, health_controller_1.HealthController],
+        controllers: [transfer_controller_1.TransferController, transfer_confirmation_controller_1.TransferConfirmationController, health_controller_1.HealthController, key_resolution_controller_1.KeyResolutionController],
         providers: [
             {
                 provide: core_1.APP_FILTER,

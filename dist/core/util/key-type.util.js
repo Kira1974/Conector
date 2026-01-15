@@ -10,12 +10,9 @@ var KeyType;
     KeyType["COMMERCE_CODE"] = "B";
 })(KeyType || (exports.KeyType = KeyType = {}));
 function calculateKeyType(keyValue) {
-    if (!keyValue) {
-        throw new Error('Key value cannot be empty');
-    }
     const length = keyValue.length;
     const isNumeric = /^\d+$/.test(keyValue);
-    if (length === 10 && keyValue.startsWith('00')) {
+    if (length === 10 && keyValue.startsWith('00') && isNumeric) {
         return KeyType.COMMERCE_CODE;
     }
     if (length === 10 && isNumeric && keyValue.startsWith('3')) {

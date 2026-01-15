@@ -47,6 +47,10 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
         const response = ctx.getResponse();
         const request = ctx.getRequest();
         const correlationId = this.extractCorrelationId(request);
+        if (this.isKeyResolutionError(exception)) {
+            this.handleKeyResolutionError(exception, response, request, correlationId);
+            return;
+        }
         const errorDetails = this.getErrorDetails(exception, correlationId);
         this.logError(exception, errorDetails, request, correlationId);
         const errorResponse = {
@@ -228,6 +232,23 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
             request.headers['correlation-id'] ||
             request.body?.correlationId ||
             undefined);
+    }
+    isKeyResolutionError(exception) {
+        if (!(exception instanceof common_1.HttpException)) {
+            return false;
+        }
+        const response = exception.getResponse();
+        return typeof response === 'object' && response !== null && 'networkCode' in response;
+    }
+    handleKeyResolutionError(exception, response, request, correlationId) {
+        const exceptionResponse = exception.getResponse();
+        this.logError(exception, {
+            message: String(exceptionResponse.message || 'Key resolution error'),
+            errorCode: 'KEY_RESOLUTION_ERROR',
+            httpStatus: exception.getStatus(),
+            correlationId
+        }, request, correlationId);
+        response.status(exception.getStatus()).json(exceptionResponse);
     }
     isTimeoutError(exception) {
         if (!(exception instanceof Error))

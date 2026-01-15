@@ -108,7 +108,7 @@ let DifeProvider = DifeProvider_1 = class DifeProvider {
             if (!response.data) {
                 this.logger.error('DIFE returned empty response', {
                     correlationId: request.correlationId,
-                    key: request.key,
+                    key: (0, util_1.obfuscateKey)(request.key, 3),
                     status: response.status,
                     headers: response.headers
                 });
@@ -129,7 +129,7 @@ let DifeProvider = DifeProvider_1 = class DifeProvider {
         catch (error) {
             this.logger.error('Key resolution failed', {
                 correlationId: request.correlationId,
-                key: request.key,
+                key: (0, util_1.obfuscateKey)(request.key, 3),
                 error: error instanceof Error ? error.message : 'Unknown error'
             });
             if (error instanceof custom_exceptions_1.KeyResolutionException || error instanceof custom_exceptions_1.ExternalServiceException) {

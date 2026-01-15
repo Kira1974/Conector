@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildAdditionalDataFromKeyResolution = void 0;
+exports.obfuscateKey = exports.buildAdditionalDataFromKeyResolution = void 0;
 const additional_data_key_enum_1 = require("../model/additional-data-key.enum");
 function buildAdditionalDataFromKeyResolution(keyResolution) {
     const key = keyResolution.key;
@@ -55,4 +55,18 @@ function buildMaskedAccountNumber(accountNumber) {
     const maskedPrefix = '*'.repeat(maskedPrefixLength);
     return `${maskedPrefix}${lastSix}`;
 }
+function obfuscateKey(value, charsToMask = 3) {
+    if (!value || value.length === 0) {
+        return '';
+    }
+    if (value.length <= charsToMask) {
+        const asterisks = '*'.repeat(Math.max(0, value.length - 1));
+        const lastChar = value.length > 0 ? value.slice(-1) : '';
+        return `${asterisks}${lastChar}`;
+    }
+    const masked = '*'.repeat(charsToMask);
+    const visible = value.slice(charsToMask);
+    return `${masked}${visible}`;
+}
+exports.obfuscateKey = obfuscateKey;
 //# sourceMappingURL=data-transformation.util.js.map

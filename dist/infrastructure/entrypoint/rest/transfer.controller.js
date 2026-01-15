@@ -26,16 +26,16 @@ let TransferController = TransferController_1 = class TransferController {
         this.logger = this.loggerService.getLogger(TransferController_1.name, themis_1.ThLoggerComponent.CONTROLLER);
     }
     async transfer(request, res) {
-        const eventId = request.transactionId;
-        const traceId = request.transactionId;
-        const correlationId = request.transactionId;
+        const eventId = request.transaction.id;
+        const traceId = request.transaction.id;
+        const correlationId = request.transaction.id;
         this.logger.log('CHARON Request', {
             method: 'POST',
-            transactionId: request.transactionId,
+            transactionId: request.transaction.id,
             eventId,
             traceId,
             correlationId,
-            amount: request.transaction.amount.value,
+            amount: request.transaction.amount.total,
             currency: request.transaction.amount.currency,
             requestBody: JSON.stringify(request, null, 2)
         });
@@ -43,6 +43,17 @@ let TransferController = TransferController_1 = class TransferController {
         const httpStatus = http_status_mapper_1.HttpStatusMapper.mapResponseCodeToHttpStatus(responseDto.responseCode);
         const endToEndId = responseDto.additionalData?.END_TO_END;
         const finalCorrelationId = endToEndId || responseDto.transactionId;
+        const responseData = {
+            state: responseDto.responseCode,
+            transactionId: responseDto.transactionId,
+            externalTransactionId: responseDto.externalTransactionId,
+            additionalData: responseDto.additionalData
+        };
+        const standardResponse = {
+            code: httpStatus,
+            message: responseDto.message,
+            data: responseData
+        };
         this.logger.log('CHARON Response', {
             status: httpStatus,
             transactionId: responseDto.transactionId,
@@ -50,10 +61,10 @@ let TransferController = TransferController_1 = class TransferController {
             traceId,
             correlationId: finalCorrelationId,
             endToEndId,
-            responseCode: responseDto.responseCode,
-            responseBody: JSON.stringify(responseDto, null, 2)
+            state: responseDto.responseCode,
+            responseBody: JSON.stringify(standardResponse, null, 2)
         });
-        return res.status(httpStatus).json(responseDto);
+        return res.status(httpStatus).json(standardResponse);
     }
 };
 exports.TransferController = TransferController;

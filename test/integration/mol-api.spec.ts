@@ -118,22 +118,24 @@ describe('MOL API Integration Tests', () => {
 
   describe('MOL API Specification Compliance', () => {
     const mockRequest: TransferRequestDto = {
-      transactionId: '12345678901234567890123456789012345',
       transaction: {
+        id: '12345678901234567890123456789012345',
         amount: {
-          value: 100.0,
+          total: 100.0,
           currency: 'COP'
         },
-        description: 'Regalo para mi madre'
-      },
-      transactionParties: {
+        description: 'Regalo para mi madre',
         payee: {
-          accountInfo: {
-            value: 'john@doe.com'
+          account: {
+            type: 'EMAIL',
+            number: 'john@doe.com',
+            detail: {
+              KEY_VALUE: 'john@doe.com'
+            }
           }
-        }
-      },
-      additionalData: {}
+        },
+        additionalData: {}
+      }
     };
 
     const mockKeyResolution: DifeKeyResponseDto = {
@@ -265,9 +267,174 @@ describe('MOL API Integration Tests', () => {
 
       mockHttpClientService.instance.post.mockResolvedValue(mockErrorResponse);
 
-      await expect(provider.createPayment(mockRequest, mockKeyResolution)).rejects.toThrow(
-        'The participant id is inactive.'
-      );
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.networkCode).toBe('403');
+      expect(result.networkMessage).toContain('The participant id is inactive.');
+    });
+
+    // Test: HTTP 200 - APPROVED with COMPLETED status
+    it('should return APPROVED for COMPLETED status (HTTP 200)', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          status: 'COMPLETED',
+          end_to_end_id: '20251127830513238CRB001764289499493',
+          execution_id: '202511270BANKCRB00009dacd2b56'
+        }
+      };
+
+      mockHttpClientService.instance.post.mockResolvedValue(mockResponse);
+
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.APPROVED);
+      expect(result.externalTransactionId).toBe('20251127830513238CRB001764289499493');
+      expect(result.additionalData?.['END_TO_END']).toBe('20251127830513238CRB001764289499493');
+      expect(result.additionalData?.['MOL_EXECUTION_ID']).toBe('202511270BANKCRB00009dacd2b56');
+      expect(result.additionalData?.['DOCUMENT_NUMBER']).toBe('1234567890');
+      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Jan* Do*');
+      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('****6987');
+      expect(result.additionalData?.['ACCOUNT_TYPE']).toBe('CAHO');
+    });
+
+    // Test: HTTP 201 - PENDING
+    it('should return PENDING for PENDING status (HTTP 201)', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          status: 'PENDING',
+          end_to_end_id: '20251127830513238CRB001764289499494',
+          execution_id: '202511270BANKCRB00009dacd2b57'
+        }
+      };
+
+      mockHttpClientService.instance.post.mockResolvedValue(mockResponse);
+
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.PENDING);
+      expect(result.externalTransactionId).toBe('20251127830513238CRB001764289499494');
+      expect(result.additionalData?.['END_TO_END']).toBe('20251127830513238CRB001764289499494');
+      expect(result.additionalData?.['DOCUMENT_NUMBER']).toBe('1234567890');
+      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Jan* Do*');
+      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('****6987');
+    });
+
+    // Test: HTTP 422 - REJECTED_BY_PROVIDER
+    it('should return REJECTED_BY_PROVIDER for rejection (HTTP 422)', async () => {
+      const mockResponse = {
+        status: 422,
+        data: {
+          error: {
+            code: 'DIFE-0004',
+            description: 'External service error in https://keymgmt-test',
+            message: 'The participant is not valid'
+          },
+          end_to_end_id: '20251120135790864CRB001763694229137',
+          execution_id: '202511200BANKCRB00029a85dc49c'
+        }
+      };
+
+      mockHttpClientService.instance.post.mockResolvedValue(mockResponse);
+
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.REJECTED_BY_PROVIDER);
+      expect(result.networkCode).toBe('DIFE-0004');
+      expect(result.networkMessage).toContain('External service error');
+      expect(result.externalTransactionId).toBe('20251120135790864CRB001763694229137');
+      expect(result.additionalData?.['NETWORK_CODE']).toBe('DIFE-0004');
+      expect(result.additionalData?.['NETWORK_MESSAGE']).toContain('External service error');
+    });
+
+    // Test: HTTP 400 - VALIDATION_FAILED (invalid key format)
+    it('should return VALIDATION_FAILED for invalid key format (HTTP 400)', async () => {
+      const mockResponse = {
+        status: 400,
+        data: {
+          errors: [
+            {
+              code: 'DIFE-4000',
+              description: 'Invalid request body: key format is invalid'
+            }
+          ]
+        }
+      };
+
+      mockHttpClientService.instance.post.mockResolvedValue(mockResponse);
+
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.networkCode).toBe('DIFE-4000');
+      expect(result.networkMessage).toContain('Invalid request body');
+    });
+
+    // Test: HTTP 400 - VALIDATION_FAILED (MOL validation)
+    it('should return VALIDATION_FAILED for MOL validation error (HTTP 400)', async () => {
+      const mockResponse = {
+        status: 400,
+        data: {
+          error: {
+            code: 'MOL-4007',
+            description: 'Invalid account number format'
+          }
+        }
+      };
+
+      mockHttpClientService.instance.post.mockResolvedValue(mockResponse);
+
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.networkCode).toBe('MOL-4007');
+      expect(result.networkMessage).toContain('Invalid account number');
+    });
+
+    // Test: HTTP 502 - PROVIDER_ERROR
+    it('should return PROVIDER_ERROR for uncontrolled provider error (HTTP 502)', async () => {
+      const mockResponse = {
+        status: 502,
+        data: {
+          error: {
+            code: 'MOL-5000',
+            description: 'MOL: Internal server error'
+          }
+        }
+      };
+
+      mockHttpClientService.instance.post.mockResolvedValue(mockResponse);
+
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.PROVIDER_ERROR);
+      expect(result.networkCode).toBe('MOL-5000');
+      expect(result.networkMessage).toContain('Internal server error');
+      expect(result.additionalData?.['NETWORK_CODE']).toBe('MOL-5000');
+    });
+
+    // Test: HTTP 500 - ERROR (internal error)
+    it('should return PROVIDER_ERROR for HTTP 500 error', async () => {
+      const mockResponse = {
+        status: 500,
+        data: {
+          errors: [
+            {
+              code: 'INTERNAL-500',
+              description: 'Internal system error'
+            }
+          ]
+        }
+      };
+
+      mockHttpClientService.instance.post.mockResolvedValue(mockResponse);
+
+      const result = await provider.createPayment(mockRequest, mockKeyResolution);
+
+      expect(result.responseCode).toBe(TransferResponseCode.PROVIDER_ERROR);
+      expect(result.networkCode).toBe('INTERNAL-500');
     });
 
     it('should validate request structure matches MOL specification exactly', async () => {

@@ -30,7 +30,7 @@ export function buildDifeErrorResponseIfAny(
     const responseCode = determineResponseCodeFromMessage(mappedMessage);
 
     return {
-      transactionId: request.transactionId,
+      transactionId: request.transaction.id,
       responseCode,
       message: mappedMessage,
       networkMessage: ErrorMessageMapper.formatNetworkErrorMessage(errorDescription, 'DIFE'),
@@ -42,10 +42,10 @@ export function buildDifeErrorResponseIfAny(
 }
 
 export function validateKeyFormatBeforeResolution(request: TransferRequestDto): TransferResponseDto | null {
-  const keyValue = request.transactionParties.payee.accountInfo.value;
+  const keyValue = request.transaction.payee.account.detail?.['KEY_VALUE'] as string | undefined;
 
   if (!keyValue || keyValue.trim() === '') {
-    return buildValidationErrorResponse(request.transactionId, TransferMessage.INVALID_KEY_FORMAT);
+    return buildValidationErrorResponse(request.transaction.id, TransferMessage.INVALID_KEY_FORMAT);
   }
 
   const isNumericKey = /^@?\d+$/.test(keyValue);
@@ -53,7 +53,7 @@ export function validateKeyFormatBeforeResolution(request: TransferRequestDto): 
   const isEmailKey = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(keyValue);
 
   if (!isNumericKey && !isAlphaKey && !isEmailKey) {
-    return buildValidationErrorResponse(request.transactionId, TransferMessage.INVALID_KEY_FORMAT);
+    return buildValidationErrorResponse(request.transaction.id, TransferMessage.INVALID_KEY_FORMAT);
   }
 
   return null;
@@ -141,6 +141,7 @@ export function isMolValidationErrorByCode(errorInfo: { code?: string; source?: 
 export function determineResponseCodeFromMessage(message: TransferMessage): TransferResponseCode {
   switch (message) {
     case TransferMessage.VALIDATION_FAILED:
+      return TransferResponseCode.VALIDATION_FAILED;
     case TransferMessage.INVALID_KEY_FORMAT:
     case TransferMessage.INVALID_ACCOUNT_NUMBER:
     case TransferMessage.KEY_NOT_FOUND_OR_CANCELED:
@@ -148,6 +149,8 @@ export function determineResponseCodeFromMessage(message: TransferMessage): Tran
     case TransferMessage.PAYMENT_REJECTED:
     case TransferMessage.PAYMENT_DECLINED:
       return TransferResponseCode.REJECTED_BY_PROVIDER;
+    case TransferMessage.PROVIDER_ERROR:
+      return TransferResponseCode.PROVIDER_ERROR;
     default:
       return TransferResponseCode.ERROR;
   }

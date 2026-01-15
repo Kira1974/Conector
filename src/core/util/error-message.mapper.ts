@@ -69,7 +69,8 @@ export class ErrorMessageMapper {
   private static readonly MOL_ERROR_CODE_MAP: Record<string, TransferMessage> = {
     '403': TransferMessage.PAYMENT_REJECTED,
     '400': TransferMessage.VALIDATION_FAILED,
-    '500': TransferMessage.PAYMENT_NETWORK_ERROR,
+    '500': TransferMessage.PROVIDER_ERROR,
+    'MOL-5000': TransferMessage.PROVIDER_ERROR,
     'MOL-5005': TransferMessage.VALIDATION_FAILED,
     'MOL-4009': TransferMessage.VALIDATION_FAILED,
     'MOL-4008': TransferMessage.VALIDATION_FAILED,

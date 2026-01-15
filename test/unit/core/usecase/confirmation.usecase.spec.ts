@@ -173,7 +173,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result.transactionId).toBe('E2E-123');
       expect(result.responseCode).toBe(TransferResponseCode.ERROR);
-      expect(result.message).toBe('Unknown error occurred');
+      expect(result.message).toBe('Internal error');
       expect(result.networkCode).toBe('ERR001');
       expect(result.networkMessage).toContain('MOL: Invalid account');
       expect(result.externalTransactionId).toBe('E2E-123');
@@ -187,7 +187,7 @@ describe('ConfirmationUseCase', () => {
         expect.objectContaining({
           transactionId: 'E2E-123',
           responseCode: TransferResponseCode.ERROR,
-          message: 'Unknown error occurred'
+          message: 'Internal error'
         }),
         'webhook'
       );
@@ -302,7 +302,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result.networkCode).toBe('ERR001');
       expect(result.networkMessage).toContain('MOL: Single error message');
-      expect(result.message).toBe('Unknown error occurred');
+      expect(result.message).toBe('Internal error');
     });
 
     it('should handle empty errors array', () => {

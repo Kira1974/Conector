@@ -12,6 +12,8 @@ export declare class GlobalExceptionFilter implements ExceptionFilter {
     private getHttpErrorCode;
     private flattenValidationErrors;
     private extractCorrelationId;
+    private isKeyResolutionError;
+    private handleKeyResolutionError;
     private isTimeoutError;
     private isNetworkError;
     private mapToResponseCode;
