@@ -2,12 +2,10 @@ import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer
 import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
 import { TransferMessage } from '../constant';
 
-import { calculateKeyType } from './key-type.util';
-import { validateKeyFormat } from './key-format-validator.util';
 
 export function validateKeyFormatBeforeResolution(request: TransferRequestDto): TransferResponseDto | null {
   const key = request.transaction.payee.account.detail?.['KEY_VALUE'] as string | undefined;
-  if (!key) {
+  if (!key || key.trim() === '') {
     return {
       transactionId: request.transaction.id,
       responseCode: TransferResponseCode.VALIDATION_FAILED,
@@ -17,10 +15,7 @@ export function validateKeyFormatBeforeResolution(request: TransferRequestDto): 
     };
   }
 
-  const keyType = calculateKeyType(key);
-  const validation = validateKeyFormat(key, keyType);
-
-  if (!validation.isValid) {
+  if (key.length > 200) {
     return {
       transactionId: request.transaction.id,
       responseCode: TransferResponseCode.VALIDATION_FAILED,
@@ -29,6 +24,5 @@ export function validateKeyFormatBeforeResolution(request: TransferRequestDto): 
       networkCode: undefined
     };
   }
-
   return null;
 }

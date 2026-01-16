@@ -99,9 +99,21 @@ export class ErrorMessageMapper {
       return TransferMessage.UNKNOWN_ERROR;
     }
 
-    const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
-
     if (errorInfo.code) {
+      // Check if error code starts with DIFE- or MOL- to determine the correct map
+      // This handles cases where MOL returns DIFE errors in its response
+      if (errorInfo.code.startsWith('DIFE-')) {
+        if (this.DIFE_ERROR_CODE_MAP[errorInfo.code]) {
+          return this.DIFE_ERROR_CODE_MAP[errorInfo.code];
+        }
+      } else if (errorInfo.code.startsWith('MOL-')) {
+        if (this.MOL_ERROR_CODE_MAP[errorInfo.code]) {
+          return this.MOL_ERROR_CODE_MAP[errorInfo.code];
+        }
+      }
+
+      // Fallback to source-based map for HTTP codes and other cases
+      const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
       if (codeMap[errorInfo.code]) {
         return codeMap[errorInfo.code];
       }
@@ -148,5 +160,29 @@ export class ErrorMessageMapper {
 
   static formatNetworkErrorMessage(description: string, source: 'DIFE' | 'MOL'): string {
     return `${source}: ${description}`;
+  }
+
+  /**
+   * Determines if an error from DIFE or MOL is a controlled/known error (422 - REJECTED_BY_PROVIDER)
+   * or an uncontrolled/unknown error (502 - PROVIDER_ERROR).
+   *
+   * Controlled errors are those documented in the API specification and mapped in our error code maps.
+   * Uncontrolled errors are unexpected failures from the provider (e.g., 5XX errors, unknown error codes).
+   */
+  static isControlledProviderError(errorInfo: NetworkErrorInfo | null): boolean {
+    if (!errorInfo || !errorInfo.code) {
+      return false; // Unknown errors are uncontrolled
+    }
+
+    // Check if error code starts with DIFE- or MOL- to use the correct map
+    if (errorInfo.code.startsWith('DIFE-')) {
+      return !!this.DIFE_ERROR_CODE_MAP[errorInfo.code];
+    } else if (errorInfo.code.startsWith('MOL-')) {
+      return !!this.MOL_ERROR_CODE_MAP[errorInfo.code];
+    }
+
+    // Fallback to source-based map for HTTP codes and other cases
+    const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
+    return !!codeMap[errorInfo.code];
   }
 }

@@ -138,7 +138,7 @@ let ConfirmationUseCase = ConfirmationUseCase_1 = class ConfirmationUseCase {
                 source: 'MOL'
             };
             mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
-            const responseCode = (0, transfer_validation_util_1.determineResponseCodeFromMessage)(mappedMessage);
+            const responseCode = (0, transfer_validation_util_1.determineResponseCodeFromMessage)(mappedMessage, true);
             return {
                 transactionId: endToEndId,
                 responseCode,

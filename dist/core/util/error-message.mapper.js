@@ -7,8 +7,18 @@ class ErrorMessageMapper {
         if (!errorInfo) {
             return transfer_message_enum_1.TransferMessage.UNKNOWN_ERROR;
         }
-        const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
         if (errorInfo.code) {
+            if (errorInfo.code.startsWith('DIFE-')) {
+                if (this.DIFE_ERROR_CODE_MAP[errorInfo.code]) {
+                    return this.DIFE_ERROR_CODE_MAP[errorInfo.code];
+                }
+            }
+            else if (errorInfo.code.startsWith('MOL-')) {
+                if (this.MOL_ERROR_CODE_MAP[errorInfo.code]) {
+                    return this.MOL_ERROR_CODE_MAP[errorInfo.code];
+                }
+            }
+            const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
             if (codeMap[errorInfo.code]) {
                 return codeMap[errorInfo.code];
             }
@@ -51,6 +61,19 @@ class ErrorMessageMapper {
     }
     static formatNetworkErrorMessage(description, source) {
         return `${source}: ${description}`;
+    }
+    static isControlledProviderError(errorInfo) {
+        if (!errorInfo || !errorInfo.code) {
+            return false;
+        }
+        if (errorInfo.code.startsWith('DIFE-')) {
+            return !!this.DIFE_ERROR_CODE_MAP[errorInfo.code];
+        }
+        else if (errorInfo.code.startsWith('MOL-')) {
+            return !!this.MOL_ERROR_CODE_MAP[errorInfo.code];
+        }
+        const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
+        return !!codeMap[errorInfo.code];
     }
 }
 exports.ErrorMessageMapper = ErrorMessageMapper;

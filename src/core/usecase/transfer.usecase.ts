@@ -106,30 +106,22 @@ export class TransferUseCase {
   }
 
   private extractKeyResolutionFromAdditionalData(request: TransferRequestDto): DifeKeyResponseDto | null {
-    // Try to extract from payee.account.detail first (new structure)
     const accountDetail = request.transaction.payee.account.detail;
 
-    // Fallback to additionalData (legacy support)
-    const additionalData = request.transaction.additionalData;
-
-    const sourceData = accountDetail || additionalData;
-    if (!sourceData) {
+    if (!accountDetail) {
       return null;
     }
 
-    const correlationId = sourceData['BREB_DIFE_CORRELATION_ID'] as string | undefined;
-    const traceId = sourceData['BREB_DIFE_TRACE_ID'] as string | undefined;
-    const keyType = (sourceData['BREB_KEY_TYPE'] || sourceData['KEY_TYPE']) as string | undefined;
-    const participantNit = (sourceData['BREB_PARTICIPANT_NIT'] || sourceData['PARTICIPANT_NIT']) as string | undefined;
-    const participantSpbvi = (sourceData['BREB_PARTICIPANT_SPBVI'] || sourceData['PARTICIPANT_SPBVI']) as
-      | string
-      | undefined;
+    const keyValue = accountDetail['KEY_VALUE'] as string | undefined;
+    const keyType = accountDetail['KEY_TYPE'] as string | undefined;
+    const participantNit = accountDetail['PARTICIPANT_NIT'] as string | undefined;
+    const participantSpbvi = accountDetail['PARTICIPANT_SPBVI'] as string | undefined;
+    const difeTraceId = accountDetail['DIFE_TRACE_ID'] as string | undefined;
 
-    if (!correlationId || !keyType || !participantNit || !participantSpbvi) {
+    if (!keyValue || !keyType || !participantNit || !participantSpbvi) {
       return null;
     }
 
-    const keyValue = sourceData['KEY_VALUE'] as string | undefined;
     const accountType = request.transaction.payee.account.type;
     const accountNumber = request.transaction.payee.account.number;
     const documentType = request.transaction.payee.documentType;
@@ -137,15 +129,17 @@ export class TransferUseCase {
     const payeeName = request.transaction.payee.name;
     const personType = request.transaction.payee.personType;
 
-    if (!accountType || !accountNumber || !keyValue) {
+    if (!accountType || !accountNumber) {
       return null;
     }
 
     const names = this.parsePayeeName(payeeName);
 
+    const correlationId = generateCorrelationId();
+
     return {
       correlation_id: correlationId,
-      trace_id: traceId || '',
+      trace_id: difeTraceId || '',
       status: 'SUCCESS',
       key: {
         key: {
@@ -357,24 +351,27 @@ export class TransferUseCase {
         ? { code: networkErrorInfo.code, description: error.message, source: networkErrorInfo.source }
         : { code: undefined, description: error.message, source: 'DIFE' as const };
 
+      const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+      const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
+
       return {
         transactionId,
-        responseCode: TransferResponseCode.VALIDATION_FAILED,
-        message: TransferMessage.KEY_RESOLUTION_ERROR,
+        responseCode,
+        message: mappedMessage,
         networkMessage: error.message,
         ...(errorInfo.code && { networkCode: errorInfo.code })
       };
     }
 
     const errorInfo = extractNetworkErrorInfo(errorMessage);
-    const mappedMessage = errorInfo
-      ? ErrorMessageMapper.mapToMessage({
-          code: errorInfo.code,
-          description: errorMessage,
-          source: errorInfo.source
-        })
+    const networkErrorInfo = errorInfo
+      ? { code: errorInfo.code, description: errorMessage, source: errorInfo.source }
+      : null;
+    const mappedMessage = networkErrorInfo
+      ? ErrorMessageMapper.mapToMessage(networkErrorInfo)
       : TransferMessage.UNKNOWN_ERROR;
-    const responseCode = determineResponseCodeFromMessage(mappedMessage);
+    const fromProvider = !!errorInfo;
+    const responseCode = determineResponseCodeFromMessage(mappedMessage, fromProvider, networkErrorInfo);
 
     return {
       transactionId,

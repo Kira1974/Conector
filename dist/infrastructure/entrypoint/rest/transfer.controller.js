@@ -44,11 +44,23 @@ let TransferController = TransferController_1 = class TransferController {
         const endToEndId = responseDto.additionalData?.END_TO_END;
         const finalCorrelationId = endToEndId || responseDto.transactionId;
         const responseData = {
-            state: responseDto.responseCode,
-            transactionId: responseDto.transactionId,
-            externalTransactionId: responseDto.externalTransactionId,
-            additionalData: responseDto.additionalData
+            state: responseDto.responseCode
         };
+        if (responseDto.transactionId) {
+            responseData.transactionId = responseDto.transactionId;
+        }
+        if (responseDto.externalTransactionId) {
+            responseData.externalTransactionId = responseDto.externalTransactionId;
+        }
+        if (responseDto.networkCode) {
+            responseData.networkCode = responseDto.networkCode;
+        }
+        if (responseDto.networkMessage) {
+            responseData.networkMessage = responseDto.networkMessage;
+        }
+        if (responseDto.additionalData && Object.keys(responseDto.additionalData).length > 0) {
+            responseData.additionalData = responseDto.additionalData;
+        }
         const standardResponse = {
             code: httpStatus,
             message: responseDto.message,

@@ -53,14 +53,29 @@ export class TransferController {
     const endToEndId = (responseDto.additionalData as Record<string, string> | undefined)?.END_TO_END;
     const finalCorrelationId = endToEndId || responseDto.transactionId;
 
-    // Transform to external response format (aligned with documentation pages 7-10)
-    // Change 'responseCode' to 'state' in the response data
-    const responseData = {
-      state: responseDto.responseCode,
-      transactionId: responseDto.transactionId,
-      externalTransactionId: responseDto.externalTransactionId,
-      additionalData: responseDto.additionalData
+    const responseData: any = {
+      state: responseDto.responseCode
     };
+
+    if (responseDto.transactionId) {
+      responseData.transactionId = responseDto.transactionId;
+    }
+
+    if (responseDto.externalTransactionId) {
+      responseData.externalTransactionId = responseDto.externalTransactionId;
+    }
+
+    if (responseDto.networkCode) {
+      responseData.networkCode = responseDto.networkCode;
+    }
+
+    if (responseDto.networkMessage) {
+      responseData.networkMessage = responseDto.networkMessage;
+    }
+
+    if (responseDto.additionalData && Object.keys(responseDto.additionalData).length > 0) {
+      responseData.additionalData = responseDto.additionalData;
+    }
 
     const standardResponse: ThStandardResponse<typeof responseData> = {
       code: httpStatus,

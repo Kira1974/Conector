@@ -10,4 +10,5 @@ export declare class ErrorMessageMapper {
     private static readonly HTTP_ERROR_CODE_MAP;
     static mapToMessage(errorInfo: NetworkErrorInfo | null): TransferMessage;
     static formatNetworkErrorMessage(description: string, source: 'DIFE' | 'MOL'): string;
+    static isControlledProviderError(errorInfo: NetworkErrorInfo | null): boolean;
 }

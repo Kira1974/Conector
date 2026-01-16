@@ -6,9 +6,10 @@ import { AxiosResponse } from 'axios';
 
 import { ExternalServiceException, PaymentProcessingException } from '@core/exception/custom.exceptions';
 import { IMolPaymentProvider } from '@core/provider';
-import { formatTimestampWithoutZ } from '@core/util';
+import { formatTimestampWithoutZ, determineResponseCodeFromMessage } from '@core/util';
 import { AdditionalDataKey } from '@core/model';
 import { TransferMessage } from '@core/constant';
+import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
 import { ExternalServicesConfigService } from '@config/external-services-config.service';
 import { LoggingConfigService } from '@config/logging-config.service';
 import { MolPayerConfigService } from '@config/mol-payer-config.service';
@@ -371,21 +372,16 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     const errorCode = response.data?.error?.code || response.data?.errors?.[0]?.code || '';
     const errorMessage = response.data?.error?.description || response.data?.error?.message || '';
 
-    // Build base additionalData with execution IDs
     const additionalData: Record<string, any> = {
       [AdditionalDataKey.END_TO_END]: endToEndId,
       [AdditionalDataKey.DIFE_EXECUTION_ID]: difeExecutionId,
       [AdditionalDataKey.MOL_EXECUTION_ID]: molExecutionId
     };
-
-    // Add key resolution fields if available
     if (keyResolution.key) {
-      // Document number
       if (keyResolution.key.person?.identification?.number) {
         additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
       }
 
-      // Obfuscated name
       const firstName = keyResolution.key.person?.name?.first_name || '';
       const lastName = keyResolution.key.person?.name?.last_name || '';
       const fullName = [firstName, lastName].filter(Boolean).join(' ');
@@ -394,19 +390,13 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       } else if (keyResolution.key.person?.legal_name) {
         additionalData.OBFUSCATED_NAME = this.obfuscateName(keyResolution.key.person.legal_name);
       }
-
-      // Account number (obfuscated)
       if (keyResolution.key.payment_method?.number) {
         additionalData.ACCOUNT_NUMBER = this.obfuscateAccountNumber(keyResolution.key.payment_method.number);
       }
-
-      // Account type
       if (keyResolution.key.payment_method?.type) {
         additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
       }
     }
-
-    // Add network error information if present
     if (errorCode) {
       additionalData.NETWORK_CODE = errorCode;
     }
@@ -414,7 +404,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       additionalData.NETWORK_MESSAGE = errorMessage;
     }
 
-    // HTTP 400-499 errors (validation or rejection)
     if (response.status >= 400 && response.status < 500) {
       let errorDescription = '';
 
@@ -434,15 +423,30 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         error: errorDescription
       });
 
-      // Determine if it's a validation error (400) or rejection (422)
-      const isValidationError = this.isValidationErrorCode(errorCode) || response.status === 400;
-      const responseCode = isValidationError ? TransferResponseCode.VALIDATION_FAILED : TransferResponseCode.REJECTED_BY_PROVIDER;
-      const message = isValidationError ? TransferMessage.VALIDATION_ERROR : TransferMessage.TRANSACTION_REJECTED;
+      const errorInfo: NetworkErrorInfo = {
+        code: errorCode,
+        description: errorMessage || errorDescription,
+        source: 'MOL'
+      };
+
+      const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+
+      // HTTP 400 from provider = VALIDATION_FAILED (provider validation errors)
+      // HTTP 422 from provider = REJECTED_BY_PROVIDER (provider business rules rejection)
+      // Other 4XX = determine based on error info
+      let responseCode: TransferResponseCode;
+      if (response.status === 400) {
+        responseCode = TransferResponseCode.VALIDATION_FAILED;
+      } else if (response.status === 422) {
+        responseCode = TransferResponseCode.REJECTED_BY_PROVIDER;
+      } else {
+        responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
+      }
 
       return {
         transactionId: request.transaction.id,
         responseCode,
-        message,
+        message: mappedMessage,
         networkMessage: errorMessage || errorDescription,
         networkCode: errorCode,
         externalTransactionId: endToEndId,
@@ -450,7 +454,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       };
     }
 
-    // HTTP 500+ errors (provider or internal errors)
     if (response.status >= 500) {
       let errorDescription = '';
 
@@ -480,8 +483,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         additionalData
       };
     }
-
-    // Status-based error handling for 2xx responses with error status
     if (response.data?.status === 'ERROR') {
       let errorDescription = '';
 
@@ -500,18 +501,25 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         error: errorDescription
       });
 
+      const errorInfo: NetworkErrorInfo = {
+        code: errorCode,
+        description: errorMessage || errorDescription,
+        source: 'MOL'
+      };
+
+      const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+      const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
+
       return {
         transactionId: request.transaction.id,
-        responseCode: TransferResponseCode.ERROR,
-        message: TransferMessage.PAYMENT_PROCESSING_ERROR,
+        responseCode,
+        message: mappedMessage,
         networkMessage: errorMessage || errorDescription,
         networkCode: errorCode,
         externalTransactionId: endToEndId,
         additionalData
       };
     }
-
-    // Check for error object in successful HTTP response
     if (response.data?.error) {
       const errorDescription = response.data.error.description || response.data.error.message || 'MOL API error';
 
@@ -522,10 +530,19 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         error: errorDescription
       });
 
+      const errorInfo: NetworkErrorInfo = {
+        code: response.data.error.code,
+        description: errorDescription,
+        source: 'MOL'
+      };
+
+      const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+      const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
+
       return {
         transactionId: request.transaction.id,
-        responseCode: TransferResponseCode.ERROR,
-        message: TransferMessage.PAYMENT_PROCESSING_ERROR,
+        responseCode,
+        message: mappedMessage,
         networkMessage: errorDescription,
         networkCode: response.data.error.code,
         externalTransactionId: endToEndId,
@@ -533,21 +550,17 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       };
     }
 
-    // Success cases based on MOL status
     const molStatus = response.data?.status;
     let responseCode: TransferResponseCode;
     let message: TransferMessage;
 
     if (molStatus === 'COMPLETED' || molStatus === 'PROCESSING') {
-      // HTTP 200 - Payment approved/successful
       responseCode = TransferResponseCode.APPROVED;
       message = TransferMessage.PAYMENT_APPROVED;
     } else if (molStatus === 'PENDING') {
-      // HTTP 201 - Payment pending confirmation
       responseCode = TransferResponseCode.PENDING;
       message = TransferMessage.PAYMENT_PENDING;
     } else {
-      // Unknown status - treat as error
       this.logger.warn('MOL API returned unknown status', {
         internalId: request.transaction.id,
         status: molStatus
@@ -566,24 +579,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       additionalData
     };
   }
-
-  /**
-   * Check if error code is a validation error (should return 400 instead of 422)
-   */
-  private isValidationErrorCode(errorCode: string): boolean {
-    const validationErrorCodes = [
-      'DIFE-4000', 'DIFE-4001', 'DIFE-5005', // Invalid key format
-      'DIFE-0007', 'DIFE-5004', 'DIFE-5016', 'DIFE-5018', 'DIFE-5019', // Data validations
-      'MOL-4007', 'MOL-4010', // Invalid account number
-      'MOL-5005' // Data validation in MOL
-    ];
-    return validationErrorCodes.includes(errorCode);
-  }
-
-  /**
-   * Obfuscate name for privacy
-   * Example: "Juan Perez" -> "Jua* Per**"
-   */
   private obfuscateName(name: string): string {
     const parts = name.split(' ').filter(Boolean);
     return parts
@@ -596,10 +591,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       .join(' ');
   }
 
-  /**
-   * Obfuscate account number for privacy
-   * Example: "1234567890" -> "****7890"
-   */
   private obfuscateAccountNumber(accountNumber: string): string {
     if (accountNumber.length <= 4) {
       return accountNumber;

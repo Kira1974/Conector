@@ -25,7 +25,6 @@ export declare class MolPaymentProvider implements IMolPaymentProvider {
     private validateQueryRequest;
     private buildQueryParams;
     private handlePaymentResponse;
-    private isValidationErrorCode;
     private obfuscateName;
     private obfuscateAccountNumber;
     private toPaymentRequestDto;

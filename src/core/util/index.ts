@@ -5,9 +5,10 @@ export * from './error-message.mapper';
 export * from './key-format-validator.util';
 export * from './error-constants.util';
 
+// Export other transfer validation utilities
+export { validateKeyFormatBeforeResolution } from './key-format-validation.util';
 export {
   buildDifeErrorResponseIfAny,
-  validateKeyFormatBeforeResolution,
   isDifeValidationError,
   isMolValidationError,
   isMolValidationErrorByCode,

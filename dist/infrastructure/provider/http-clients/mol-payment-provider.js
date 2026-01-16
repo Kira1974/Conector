@@ -18,6 +18,7 @@ const custom_exceptions_1 = require("../../../core/exception/custom.exceptions")
 const util_1 = require("../../../core/util");
 const model_1 = require("../../../core/model");
 const constant_1 = require("../../../core/constant");
+const error_message_mapper_1 = require("../../../core/util/error-message.mapper");
 const external_services_config_service_1 = require("../../../configuration/external-services-config.service");
 const logging_config_service_1 = require("../../../configuration/logging-config.service");
 const mol_payer_config_service_1 = require("../../../configuration/mol-payer-config.service");
@@ -325,13 +326,26 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 errorId: response.data?.error?.id,
                 error: errorDescription
             });
-            const isValidationError = this.isValidationErrorCode(errorCode) || response.status === 400;
-            const responseCode = isValidationError ? dto_1.TransferResponseCode.VALIDATION_FAILED : dto_1.TransferResponseCode.REJECTED_BY_PROVIDER;
-            const message = isValidationError ? constant_1.TransferMessage.VALIDATION_ERROR : constant_1.TransferMessage.TRANSACTION_REJECTED;
+            const errorInfo = {
+                code: errorCode,
+                description: errorMessage || errorDescription,
+                source: 'MOL'
+            };
+            const mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
+            let responseCode;
+            if (response.status === 400) {
+                responseCode = dto_1.TransferResponseCode.VALIDATION_FAILED;
+            }
+            else if (response.status === 422) {
+                responseCode = dto_1.TransferResponseCode.REJECTED_BY_PROVIDER;
+            }
+            else {
+                responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage, true, errorInfo);
+            }
             return {
                 transactionId: request.transaction.id,
                 responseCode,
-                message,
+                message: mappedMessage,
                 networkMessage: errorMessage || errorDescription,
                 networkCode: errorCode,
                 externalTransactionId: endToEndId,
@@ -383,10 +397,17 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 errorCode,
                 error: errorDescription
             });
+            const errorInfo = {
+                code: errorCode,
+                description: errorMessage || errorDescription,
+                source: 'MOL'
+            };
+            const mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
+            const responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage, true, errorInfo);
             return {
                 transactionId: request.transaction.id,
-                responseCode: dto_1.TransferResponseCode.ERROR,
-                message: constant_1.TransferMessage.PAYMENT_PROCESSING_ERROR,
+                responseCode,
+                message: mappedMessage,
                 networkMessage: errorMessage || errorDescription,
                 networkCode: errorCode,
                 externalTransactionId: endToEndId,
@@ -401,10 +422,17 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 errorId: response.data.error.id,
                 error: errorDescription
             });
+            const errorInfo = {
+                code: response.data.error.code,
+                description: errorDescription,
+                source: 'MOL'
+            };
+            const mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
+            const responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage, true, errorInfo);
             return {
                 transactionId: request.transaction.id,
-                responseCode: dto_1.TransferResponseCode.ERROR,
-                message: constant_1.TransferMessage.PAYMENT_PROCESSING_ERROR,
+                responseCode,
+                message: mappedMessage,
                 networkMessage: errorDescription,
                 networkCode: response.data.error.code,
                 externalTransactionId: endToEndId,
@@ -439,15 +467,6 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
             externalTransactionId: endToEndId,
             additionalData
         };
-    }
-    isValidationErrorCode(errorCode) {
-        const validationErrorCodes = [
-            'DIFE-4000', 'DIFE-4001', 'DIFE-5005',
-            'DIFE-0007', 'DIFE-5004', 'DIFE-5016', 'DIFE-5018', 'DIFE-5019',
-            'MOL-4007', 'MOL-4010',
-            'MOL-5005'
-        ];
-        return validationErrorCodes.includes(errorCode);
     }
     obfuscateName(name) {
         const parts = name.split(' ').filter(Boolean);

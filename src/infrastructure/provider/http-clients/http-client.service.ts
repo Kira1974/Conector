@@ -29,7 +29,7 @@ export class HttpClientService {
     this.client = axios.create({
       httpsAgent: agent,
       // No global timeout - each request manages its own timeout
-      validateStatus: (status) => status < 500 // Don't throw on 4xx errors
+      validateStatus: () => true
     });
 
     this.setupInterceptors();

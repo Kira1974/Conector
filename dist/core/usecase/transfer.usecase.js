@@ -82,33 +82,31 @@ let TransferUseCase = TransferUseCase_1 = class TransferUseCase {
     }
     extractKeyResolutionFromAdditionalData(request) {
         const accountDetail = request.transaction.payee.account.detail;
-        const additionalData = request.transaction.additionalData;
-        const sourceData = accountDetail || additionalData;
-        if (!sourceData) {
+        if (!accountDetail) {
             return null;
         }
-        const correlationId = sourceData['BREB_DIFE_CORRELATION_ID'];
-        const traceId = sourceData['BREB_DIFE_TRACE_ID'];
-        const keyType = (sourceData['BREB_KEY_TYPE'] || sourceData['KEY_TYPE']);
-        const participantNit = (sourceData['BREB_PARTICIPANT_NIT'] || sourceData['PARTICIPANT_NIT']);
-        const participantSpbvi = (sourceData['BREB_PARTICIPANT_SPBVI'] || sourceData['PARTICIPANT_SPBVI']);
-        if (!correlationId || !keyType || !participantNit || !participantSpbvi) {
+        const keyValue = accountDetail['KEY_VALUE'];
+        const keyType = accountDetail['KEY_TYPE'];
+        const participantNit = accountDetail['PARTICIPANT_NIT'];
+        const participantSpbvi = accountDetail['PARTICIPANT_SPBVI'];
+        const difeTraceId = accountDetail['DIFE_TRACE_ID'];
+        if (!keyValue || !keyType || !participantNit || !participantSpbvi) {
             return null;
         }
-        const keyValue = sourceData['KEY_VALUE'];
         const accountType = request.transaction.payee.account.type;
         const accountNumber = request.transaction.payee.account.number;
         const documentType = request.transaction.payee.documentType;
         const documentNumber = request.transaction.payee.documentNumber;
         const payeeName = request.transaction.payee.name;
         const personType = request.transaction.payee.personType;
-        if (!accountType || !accountNumber || !keyValue) {
+        if (!accountType || !accountNumber) {
             return null;
         }
         const names = this.parsePayeeName(payeeName);
+        const correlationId = (0, util_1.generateCorrelationId)();
         return {
             correlation_id: correlationId,
-            trace_id: traceId || '',
+            trace_id: difeTraceId || '',
             status: 'SUCCESS',
             key: {
                 key: {
@@ -272,23 +270,25 @@ let TransferUseCase = TransferUseCase_1 = class TransferUseCase {
             const errorInfo = networkErrorInfo
                 ? { code: networkErrorInfo.code, description: error.message, source: networkErrorInfo.source }
                 : { code: undefined, description: error.message, source: 'DIFE' };
+            const mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
+            const responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage, true, errorInfo);
             return {
                 transactionId,
-                responseCode: transfer_response_dto_1.TransferResponseCode.VALIDATION_FAILED,
-                message: constant_1.TransferMessage.KEY_RESOLUTION_ERROR,
+                responseCode,
+                message: mappedMessage,
                 networkMessage: error.message,
                 ...(errorInfo.code && { networkCode: errorInfo.code })
             };
         }
         const errorInfo = (0, util_1.extractNetworkErrorInfo)(errorMessage);
-        const mappedMessage = errorInfo
-            ? error_message_mapper_1.ErrorMessageMapper.mapToMessage({
-                code: errorInfo.code,
-                description: errorMessage,
-                source: errorInfo.source
-            })
+        const networkErrorInfo = errorInfo
+            ? { code: errorInfo.code, description: errorMessage, source: errorInfo.source }
+            : null;
+        const mappedMessage = networkErrorInfo
+            ? error_message_mapper_1.ErrorMessageMapper.mapToMessage(networkErrorInfo)
             : constant_1.TransferMessage.UNKNOWN_ERROR;
-        const responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage);
+        const fromProvider = !!errorInfo;
+        const responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage, fromProvider, networkErrorInfo);
         return {
             transactionId,
             responseCode,

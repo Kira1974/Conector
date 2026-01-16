@@ -27,7 +27,7 @@ export function buildDifeErrorResponseIfAny(
     };
 
     const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
-    const responseCode = determineResponseCodeFromMessage(mappedMessage);
+    const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
 
     return {
       transactionId: request.transaction.id,
@@ -138,18 +138,38 @@ export function isMolValidationErrorByCode(errorInfo: { code?: string; source?: 
   return MOL_VALIDATION_ERROR_CODES.includes(errorInfo.code as (typeof MOL_VALIDATION_ERROR_CODES)[number]);
 }
 
-export function determineResponseCodeFromMessage(message: TransferMessage): TransferResponseCode {
+export function determineResponseCodeFromMessage(
+  message: TransferMessage,
+  fromProvider: boolean = false,
+  errorInfo?: NetworkErrorInfo | null
+): TransferResponseCode {
+  // If error comes from provider and we have error info, check if it's controlled or uncontrolled
+  if (fromProvider && errorInfo) {
+    const isControlled = ErrorMessageMapper.isControlledProviderError(errorInfo);
+
+    if (!isControlled) {
+      // Uncontrolled provider errors always map to PROVIDER_ERROR (502)
+      return TransferResponseCode.PROVIDER_ERROR;
+    }
+    // Continue to message-based mapping for controlled errors
+  }
+
   switch (message) {
     case TransferMessage.VALIDATION_FAILED:
-      return TransferResponseCode.VALIDATION_FAILED;
     case TransferMessage.INVALID_KEY_FORMAT:
     case TransferMessage.INVALID_ACCOUNT_NUMBER:
+      return fromProvider ? TransferResponseCode.REJECTED_BY_PROVIDER : TransferResponseCode.VALIDATION_FAILED;
     case TransferMessage.KEY_NOT_FOUND_OR_CANCELED:
     case TransferMessage.KEY_SUSPENDED:
+    case TransferMessage.KEY_SUSPENDED_BY_PARTICIPANT:
     case TransferMessage.PAYMENT_REJECTED:
     case TransferMessage.PAYMENT_DECLINED:
+    case TransferMessage.KEY_RESOLUTION_ERROR:
+    case TransferMessage.TIMEOUT_ERROR:
       return TransferResponseCode.REJECTED_BY_PROVIDER;
     case TransferMessage.PROVIDER_ERROR:
+    case TransferMessage.PAYMENT_NETWORK_ERROR:
+    case TransferMessage.KEY_RESOLUTION_NETWORK_ERROR:
       return TransferResponseCode.PROVIDER_ERROR;
     default:
       return TransferResponseCode.ERROR;
@@ -162,9 +182,10 @@ function buildValidationErrorResponse(
   networkMessage?: string,
   networkCode?: string
 ): TransferResponseDto {
+  const fromProvider = !!networkCode;
   return {
     transactionId,
-    responseCode: determineResponseCodeFromMessage(message),
+    responseCode: determineResponseCodeFromMessage(message, fromProvider),
     message,
     ...(networkMessage && { networkMessage }),
     ...(networkCode && { networkCode })

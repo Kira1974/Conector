@@ -10,10 +10,6 @@ export enum TransferResponseCode {
   ERROR = 'ERROR'
 }
 
-/**
- * Internal Transfer Response DTO
- * Used internally - has responseCode and message for processing
- */
 export class TransferResponseDto {
   transactionId: string;
   responseCode: TransferResponseCode;

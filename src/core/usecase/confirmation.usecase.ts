@@ -158,7 +158,7 @@ export class ConfirmationUseCase {
       };
 
       mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
-      const responseCode = determineResponseCodeFromMessage(mappedMessage);
+      const responseCode = determineResponseCodeFromMessage(mappedMessage, true);
 
       return {
         transactionId: endToEndId,
