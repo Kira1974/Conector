@@ -157,6 +157,13 @@ export class ErrorMessageMapper {
       if (lowerDescription.includes('payment') && lowerDescription.includes('fail')) {
         return TransferMessage.PAYMENT_PROCESSING_ERROR;
       }
+      if (
+        lowerDescription.includes('500') ||
+        lowerDescription.includes('http 500') ||
+        lowerDescription.includes('status code 500')
+      ) {
+        return TransferMessage.UNKNOWN_ERROR;
+      }
       if (lowerDescription.includes('timeout')) {
         return TransferMessage.PROVIDER_ERROR;
       }

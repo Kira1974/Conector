@@ -41,6 +41,9 @@ class ErrorMessageMapper {
             if (lowerDescription.includes('payment') && lowerDescription.includes('fail')) {
                 return transfer_message_enum_1.TransferMessage.PAYMENT_PROCESSING_ERROR;
             }
+            if (lowerDescription.includes('500') || lowerDescription.includes('http 500') || lowerDescription.includes('status code 500')) {
+                return transfer_message_enum_1.TransferMessage.UNKNOWN_ERROR;
+            }
             if (lowerDescription.includes('timeout')) {
                 return transfer_message_enum_1.TransferMessage.PROVIDER_ERROR;
             }

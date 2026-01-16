@@ -510,6 +510,9 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
             if (part.length <= 2) {
                 return part.charAt(0) + '*'.repeat(part.length - 1);
             }
+            if (part.length === 3) {
+                return part.charAt(0) + '*'.repeat(2);
+            }
             return part.substring(0, 2) + '*'.repeat(part.length - 2);
         })
             .join(' ');

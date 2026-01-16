@@ -102,10 +102,13 @@ let TransferUseCase = TransferUseCase_1 = class TransferUseCase {
         if (!accountType || !accountNumber) {
             return null;
         }
+        const additionalData = request.transaction.additionalData || {};
+        const difeExecutionId = additionalData['BREB_DIFE_END_TO_END_ID'];
         const names = this.parsePayeeName(payeeName);
         const correlationId = (0, util_1.generateCorrelationId)();
         return {
             correlation_id: correlationId,
+            execution_id: difeExecutionId,
             trace_id: difeTraceId || '',
             status: 'SUCCESS',
             key: {
