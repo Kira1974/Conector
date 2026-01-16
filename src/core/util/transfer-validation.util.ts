@@ -143,15 +143,12 @@ export function determineResponseCodeFromMessage(
   fromProvider: boolean = false,
   errorInfo?: NetworkErrorInfo | null
 ): TransferResponseCode {
-  // If error comes from provider and we have error info, check if it's controlled or uncontrolled
   if (fromProvider && errorInfo) {
     const isControlled = ErrorMessageMapper.isControlledProviderError(errorInfo);
 
     if (!isControlled) {
-      // Uncontrolled provider errors always map to PROVIDER_ERROR (502)
       return TransferResponseCode.PROVIDER_ERROR;
     }
-    // Continue to message-based mapping for controlled errors
   }
 
   switch (message) {

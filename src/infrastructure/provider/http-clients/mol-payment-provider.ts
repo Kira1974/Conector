@@ -431,9 +431,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
 
       const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
 
-      // HTTP 400 from provider = VALIDATION_FAILED (provider validation errors)
-      // HTTP 422 from provider = REJECTED_BY_PROVIDER (provider business rules rejection)
-      // Other 4XX = determine based on error info
       let responseCode: TransferResponseCode;
       if (response.status === 400) {
         responseCode = TransferResponseCode.VALIDATION_FAILED;
@@ -483,43 +480,82 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         additionalData
       };
     }
-    if (response.data?.status === 'ERROR') {
-      let errorDescription = '';
+if (response.data?.status === 'ERROR') {
+  let errorCode: string | undefined;
+  let errorDescription = '';
 
-      if (response.data?.errors && response.data.errors.length > 0) {
-        errorDescription = response.data.errors.map((e) => `${e.code}: ${e.description}`).join(', ');
-      } else if (response.data?.error) {
-        const description = response.data.error.description || response.data.error.message || 'Unknown API error';
-        errorDescription = errorCode ? `${errorCode}: ${description}` : description;
-      } else {
-        errorDescription = 'Unknown API error';
-      }
+  if (response.data?.errors && response.data.errors.length > 0) {
+    const firstError = response.data.errors[0];
+    errorCode = firstError.code;
+    errorDescription = response.data.errors.map((e) => `${e.code}: ${e.description}`).join(', ');
+  } else if (response.data?.error) {
+    errorCode = response.data.error.code;
+    const description = response.data.error.description || response.data.error.message || 'Unknown API error';
+    errorDescription = errorCode ? `${errorCode}: ${description}` : description;
+  } else {
+    errorDescription = 'MOL returned ERROR status without error details';
+  }
 
-      this.logger.error('MOL API returned error status', {
-        internalId: request.transaction.id,
-        errorCode,
-        error: errorDescription
-      });
+  const endToEndId = response.data?.end_to_end_id;
+  const executionId = response.data?.execution_id;
 
-      const errorInfo: NetworkErrorInfo = {
-        code: errorCode,
-        description: errorMessage || errorDescription,
-        source: 'MOL'
-      };
+  this.logger.error('MOL API returned ERROR status', {
+    internalId: request.transaction.id,
+    errorCode,
+    endToEndId,
+    executionId,
+    error: errorDescription
+  });
 
-      const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
-      const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
+  const errorInfo: NetworkErrorInfo = {
+    code: errorCode,
+    description: errorDescription,
+    source: 'MOL'
+  };
 
-      return {
-        transactionId: request.transaction.id,
-        responseCode,
-        message: mappedMessage,
-        networkMessage: errorMessage || errorDescription,
-        networkCode: errorCode,
-        externalTransactionId: endToEndId,
-        additionalData
-      };
+  const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+  const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
+
+  const additionalData: Record<string, any> = {
+    [AdditionalDataKey.DIFE_EXECUTION_ID]: keyResolution.execution_id
+  };
+  
+  if (keyResolution.key) {
+    if (keyResolution.key.person?.identification?.number) {
+      additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
     }
+
+    const firstName = keyResolution.key.person?.name?.first_name || '';
+    const lastName = keyResolution.key.person?.name?.last_name || '';
+    const fullName = [firstName, lastName].filter(Boolean).join(' ');
+    if (fullName) {
+      additionalData.OBFUSCATED_NAME = this.obfuscateName(fullName);
+    } else if (keyResolution.key.person?.legal_name) {
+      additionalData.OBFUSCATED_NAME = this.obfuscateName(keyResolution.key.person.legal_name);
+    }
+    
+    if (keyResolution.key.payment_method?.number) {
+      additionalData.ACCOUNT_NUMBER = this.obfuscateAccountNumber(keyResolution.key.payment_method.number);
+    }
+    
+    if (keyResolution.key.payment_method?.type) {
+      additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
+    }
+  }
+
+  if (endToEndId) additionalData[AdditionalDataKey.END_TO_END] = endToEndId;
+  if (executionId) additionalData[AdditionalDataKey.MOL_EXECUTION_ID] = executionId;
+
+  return {
+    transactionId: request.transaction.id,
+    responseCode,
+    message: mappedMessage,
+    networkMessage: errorDescription,
+    networkCode: errorCode,
+    externalTransactionId: endToEndId,
+    additionalData
+  };
+}
     if (response.data?.error) {
       const errorDescription = response.data.error.description || response.data.error.message || 'MOL API error';
 
@@ -583,10 +619,10 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     const parts = name.split(' ').filter(Boolean);
     return parts
       .map((part) => {
-        if (part.length <= 3) {
+        if (part.length <= 2) {
           return part.charAt(0) + '*'.repeat(part.length - 1);
         }
-        return part.substring(0, 3) + '*'.repeat(part.length - 3);
+        return part.substring(0, 2) + '*'.repeat(part.length - 2);
       })
       .join(' ');
   }
