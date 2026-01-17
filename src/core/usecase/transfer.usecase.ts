@@ -233,11 +233,8 @@ export class TransferUseCase {
     );
   }
 
-  private buildLogContext(transactionId: string): { correlationId: string; transactionId: string } {
-    return {
-      correlationId: transactionId,
-      transactionId
-    };
+  private buildLogContext(transactionId: string): { transactionId: string } {
+    return { transactionId };
   }
 
   private buildKeyResolutionRequest(request: TransferRequestDto): KeyResolutionRequest {
@@ -350,19 +347,13 @@ export class TransferUseCase {
 
     if (error instanceof KeyResolutionException) {
       const networkErrorInfo = extractNetworkErrorInfo(error.message);
-      const errorInfo = networkErrorInfo
-        ? { code: networkErrorInfo.code, description: error.message, source: networkErrorInfo.source }
-        : { code: undefined, description: error.message, source: 'DIFE' as const };
-
-      const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
-      const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
 
       return {
         transactionId,
-        responseCode,
-        message: mappedMessage,
+        responseCode: TransferResponseCode.VALIDATION_FAILED,
+        message: TransferMessage.KEY_RESOLUTION_ERROR,
         networkMessage: error.message,
-        ...(errorInfo.code && { networkCode: errorInfo.code })
+        ...(networkErrorInfo?.code && { networkCode: networkErrorInfo.code })
       };
     }
 

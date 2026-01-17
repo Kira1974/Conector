@@ -9,22 +9,21 @@ export function buildAdditionalDataFromKeyResolution(keyResolution: DifeKeyRespo
   }
 
   const documentNumber = key.person.identification?.number || '';
-  const obfuscatedName = buildObfuscatedName(key.person);
+  const name = buildName(key.person);
   const accountNumber = key.payment_method.number || '';
-  const maskedAccountNumber = buildMaskedAccountNumber(accountNumber);
   const accountType = key.payment_method.type || '';
 
   return {
     [AdditionalDataKey.DOCUMENT_NUMBER]: documentNumber,
-    [AdditionalDataKey.OBFUSCATED_NAME]: obfuscatedName,
-    [AdditionalDataKey.ACCOUNT_NUMBER]: maskedAccountNumber,
+    [AdditionalDataKey.NAME]: name,
+    [AdditionalDataKey.ACCOUNT_NUMBER]: accountNumber,
     [AdditionalDataKey.ACCOUNT_TYPE]: accountType
   };
 }
 
-function buildObfuscatedName(person: DifeKeyResponseDto['key']['person']): string {
+function buildName(person: DifeKeyResponseDto['key']['person']): string {
   if (!person.name) {
-    return '';
+    return person.legal_name || '';
   }
 
   const nameParts = [
@@ -32,29 +31,41 @@ function buildObfuscatedName(person: DifeKeyResponseDto['key']['person']): strin
     person.name.second_name,
     person.name.last_name,
     person.name.second_last_name
-  ]
-    .map((part) => obfuscateWord(part || ''))
-    .filter((obfuscated) => obfuscated.length > 0);
+  ].filter((part) => part && part.length > 0);
 
   return nameParts.join(' ');
 }
 
-function obfuscateWord(word: string): string {
+export function obfuscateWord(word: string): string {
   if (!word) {
     return '';
   }
 
-  const prefix = word.slice(0, 3);
-  if (word.length <= 3) {
-    return prefix;
+  if (word.length === 1) {
+    return word;
   }
 
+  if (word.length <= 3) {
+    const prefix = word.slice(0, word.length - 1);
+    return `${prefix}*`;
+  }
+
+  const prefix = word.slice(0, 3);
   const maskedLength = word.length - 3;
   const maskedSuffix = '*'.repeat(maskedLength);
   return `${prefix}${maskedSuffix}`;
 }
 
-function buildMaskedAccountNumber(accountNumber: string): string {
+export function obfuscateName(name: string): string {
+  if (!name || name.trim() === '') {
+    return '';
+  }
+
+  const parts = name.split(' ').filter(Boolean);
+  return parts.map((part) => obfuscateWord(part)).join(' ');
+}
+
+export function maskAccountNumber(accountNumber: string): string {
   if (!accountNumber) {
     return '';
   }
@@ -63,6 +74,10 @@ function buildMaskedAccountNumber(accountNumber: string): string {
   const maskedPrefixLength = Math.max(accountNumber.length - 6, 0);
   const maskedPrefix = '*'.repeat(maskedPrefixLength);
   return `${maskedPrefix}${lastSix}`;
+}
+
+function buildMaskedAccountNumber(accountNumber: string): string {
+  return maskAccountNumber(accountNumber);
 }
 
 export function obfuscateKey(value: string, charsToMask: number = 3): string {

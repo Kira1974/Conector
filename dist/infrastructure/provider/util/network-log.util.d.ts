@@ -1,15 +1,9 @@
 import { AxiosResponse } from 'axios';
 export interface NetworkResponseLogOptions {
-    eventId: string;
-    traceId: string;
-    correlationId: string;
     transactionId?: string;
     retry?: boolean;
 }
 export interface NetworkRequestLogOptions {
-    eventId: string;
-    traceId: string;
-    correlationId: string;
     transactionId?: string;
     url: string;
     method: string;

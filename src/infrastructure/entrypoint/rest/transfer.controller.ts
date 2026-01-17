@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+import { Controller, Post, Body, Res, UseInterceptors } from '@nestjs/common';
 import { Response } from 'express';
 import {
   ThLogger,
@@ -6,16 +6,19 @@ import {
   ThLoggerComponent,
   ThTraceEvent,
   ThEventTypeBuilder,
-  ThStandardResponse
+  ThStandardResponse,
+  ThHttpRequestTracingInterceptor,
+  ThHttpResponseTracingInterceptor
 } from 'themis';
 
 import { TransferUseCase } from '@core/usecase';
 
-import { TransferRequestDto, TransferResponseDto } from '../dto';
+import { TransferRequestDto } from '../dto';
 
 import { HttpStatusMapper } from './util/http-status.mapper';
 
 @Controller('transfer')
+@UseInterceptors(ThHttpRequestTracingInterceptor, ThHttpResponseTracingInterceptor)
 export class TransferController {
   private readonly logger: ThLogger;
 
@@ -51,44 +54,21 @@ export class TransferController {
 
     const httpStatus = HttpStatusMapper.mapResponseCodeToHttpStatus(responseDto.responseCode);
     const endToEndId = (responseDto.additionalData as Record<string, string> | undefined)?.END_TO_END;
-    const finalCorrelationId = endToEndId || responseDto.transactionId;
 
-    const responseData: any = {
-      state: responseDto.responseCode
-    };
+    const { responseCode, message, ...rest } = responseDto;
 
-    if (responseDto.transactionId) {
-      responseData.transactionId = responseDto.transactionId;
-    }
-
-    if (responseDto.externalTransactionId) {
-      responseData.externalTransactionId = responseDto.externalTransactionId;
-    }
-
-    if (responseDto.networkCode) {
-      responseData.networkCode = responseDto.networkCode;
-    }
-
-    if (responseDto.networkMessage) {
-      responseData.networkMessage = responseDto.networkMessage;
-    }
-
-    if (responseDto.additionalData && Object.keys(responseDto.additionalData).length > 0) {
-      responseData.additionalData = responseDto.additionalData;
-    }
-
-    const standardResponse: ThStandardResponse<typeof responseData> = {
+    const standardResponse: ThStandardResponse<typeof rest & { state: string }> = {
       code: httpStatus,
-      message: responseDto.message,
-      data: responseData
+      message,
+      data: {
+        state: responseCode,
+        ...rest,
+      }
     };
 
     this.logger.log('CHARON Response', {
       status: httpStatus,
       transactionId: responseDto.transactionId,
-      eventId,
-      traceId,
-      correlationId: finalCorrelationId,
       endToEndId,
       state: responseDto.responseCode,
       responseBody: JSON.stringify(standardResponse, null, 2)

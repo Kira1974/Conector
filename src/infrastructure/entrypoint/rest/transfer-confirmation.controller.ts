@@ -1,5 +1,10 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ThTraceEvent, ThEventTypeBuilder } from 'themis';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors } from '@nestjs/common';
+import {
+  ThTraceEvent,
+  ThEventTypeBuilder,
+  ThHttpRequestTracingInterceptor,
+  ThHttpResponseTracingInterceptor
+} from 'themis';
 
 import { ConfirmationUseCase } from '@core/usecase/confirmation.usecase';
 import { ConfirmationResponse } from '@core/model';
@@ -7,6 +12,7 @@ import { ConfirmationResponse } from '@core/model';
 import { TransferConfirmationDto } from '../dto/transfer-confirmation.dto';
 
 @Controller('transfer-confirmation')
+@UseInterceptors(ThHttpRequestTracingInterceptor, ThHttpResponseTracingInterceptor)
 export class TransferConfirmationController {
   constructor(private readonly confirmationUseCase: ConfirmationUseCase) {}
 

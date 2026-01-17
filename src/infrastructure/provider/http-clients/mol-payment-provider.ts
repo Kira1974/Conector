@@ -6,7 +6,12 @@ import { AxiosResponse } from 'axios';
 
 import { ExternalServiceException, PaymentProcessingException } from '@core/exception/custom.exceptions';
 import { IMolPaymentProvider } from '@core/provider';
-import { formatTimestampWithoutZ, determineResponseCodeFromMessage } from '@core/util';
+import {
+  formatTimestampWithoutZ,
+  determineResponseCodeFromMessage,
+  obfuscateName,
+  maskAccountNumber
+} from '@core/util';
 import { AdditionalDataKey } from '@core/model';
 import { TransferMessage } from '@core/constant';
 import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
@@ -63,7 +68,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     try {
       const baseUrl = this.externalServicesConfig.getMolBaseUrl();
       const url = `${baseUrl}/v1/payment`;
-
       const dto: MolPaymentRequestDto = this.toPaymentRequestDto(request, keyResolution);
 
       this.logger.log('Creating MOL payment', {
@@ -83,14 +87,13 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         url,
         method: 'POST',
         requestBody: JSON.stringify(dto, null, 2),
-        eventId: molEventId,
-        traceId: molTraceId,
-        correlationId: molRequestCorrelationId,
         transactionId: request.transaction.id,
         headers,
         enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
       });
-
+      requestLog.eventId = molEventId;
+      requestLog.traceId = molTraceId;
+      requestLog.correlationId = molRequestCorrelationId;
       requestLog.internalId = dto.internal_id;
 
       this.logger.log('NETWORK_REQUEST MOL', requestLog);
@@ -114,8 +117,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
 
       if (response.status === 401 || response.status === 403) {
         this.logger.warn('MOL request failed with authentication error, clearing token cache and retrying', {
-          eventId: molEventId,
-          traceId: molTraceId,
           correlationId: molRequestCorrelationId,
           transactionId: request.transaction.id,
           status: response.status
@@ -188,9 +189,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       const requestLog = buildNetworkRequestLog({
         url: fullUrl,
         method: 'GET',
-        eventId: queryEventId,
-        traceId: queryTraceId,
-        correlationId: queryCorrelationId,
         headers,
         enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
       });
@@ -212,9 +210,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       });
 
       this.logMolQueryResponse(response, {
-        eventId: queryEventId,
-        traceId: queryTraceId,
-        correlationId: queryCorrelationId,
         internalId: request.internal_id,
         endToEndId: request.end_to_end_id,
         url: fullUrl
@@ -238,9 +233,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
         });
 
         this.logMolQueryResponse(response, {
-          eventId: queryEventId,
-          traceId: queryTraceId,
-          correlationId: queryCorrelationId,
           internalId: request.internal_id,
           endToEndId: request.end_to_end_id,
           url: fullUrl,
@@ -372,31 +364,13 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     const errorCode = response.data?.error?.code || response.data?.errors?.[0]?.code || '';
     const errorMessage = response.data?.error?.description || response.data?.error?.message || '';
 
-    const additionalData: Record<string, any> = {
-      [AdditionalDataKey.END_TO_END]: endToEndId,
-      [AdditionalDataKey.DIFE_EXECUTION_ID]: difeExecutionId,
-      [AdditionalDataKey.MOL_EXECUTION_ID]: molExecutionId
-    };
-    if (keyResolution.key) {
-      if (keyResolution.key.person?.identification?.number) {
-        additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
-      }
+    const additionalData = this.buildAdditionalDataWithKeyInfo(
+      keyResolution,
+      endToEndId,
+      difeExecutionId,
+      molExecutionId
+    );
 
-      const firstName = keyResolution.key.person?.name?.first_name || '';
-      const lastName = keyResolution.key.person?.name?.last_name || '';
-      const fullName = [firstName, lastName].filter(Boolean).join(' ');
-      if (fullName) {
-        additionalData.OBFUSCATED_NAME = this.obfuscateName(fullName);
-      } else if (keyResolution.key.person?.legal_name) {
-        additionalData.OBFUSCATED_NAME = this.obfuscateName(keyResolution.key.person.legal_name);
-      }
-      if (keyResolution.key.payment_method?.number) {
-        additionalData.ACCOUNT_NUMBER = this.obfuscateAccountNumber(keyResolution.key.payment_method.number);
-      }
-      if (keyResolution.key.payment_method?.type) {
-        additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
-      }
-    }
     if (errorCode) {
       additionalData.NETWORK_CODE = errorCode;
     }
@@ -516,35 +490,12 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
       const responseCode = determineResponseCodeFromMessage(mappedMessage, true, errorInfo);
 
-      const additionalData: Record<string, any> = {
-        [AdditionalDataKey.DIFE_EXECUTION_ID]: keyResolution.execution_id
-      };
-
-      if (keyResolution.key) {
-        if (keyResolution.key.person?.identification?.number) {
-          additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
-        }
-
-        const firstName = keyResolution.key.person?.name?.first_name || '';
-        const lastName = keyResolution.key.person?.name?.last_name || '';
-        const fullName = [firstName, lastName].filter(Boolean).join(' ');
-        if (fullName) {
-          additionalData.OBFUSCATED_NAME = this.obfuscateName(fullName);
-        } else if (keyResolution.key.person?.legal_name) {
-          additionalData.OBFUSCATED_NAME = this.obfuscateName(keyResolution.key.person.legal_name);
-        }
-
-        if (keyResolution.key.payment_method?.number) {
-          additionalData.ACCOUNT_NUMBER = this.obfuscateAccountNumber(keyResolution.key.payment_method.number);
-        }
-
-        if (keyResolution.key.payment_method?.type) {
-          additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
-        }
-      }
-
-      if (endToEndId) additionalData[AdditionalDataKey.END_TO_END] = endToEndId;
-      if (executionId) additionalData[AdditionalDataKey.MOL_EXECUTION_ID] = executionId;
+      const additionalData = this.buildAdditionalDataWithKeyInfo(
+        keyResolution,
+        endToEndId,
+        keyResolution.execution_id,
+        executionId
+      );
 
       return {
         transactionId: request.transaction.id,
@@ -615,31 +566,54 @@ export class MolPaymentProvider implements IMolPaymentProvider {
       additionalData
     };
   }
-  private obfuscateName(name: string): string {
-    const parts = name.split(' ').filter(Boolean);
-    return parts
-      .map((part) => {
-        if (part.length <= 2) {
-          return part.charAt(0) + '*'.repeat(part.length - 1);
-        }
-        if (part.length === 3) {
-          return part.charAt(0) + '*'.repeat(2);
-        }
-        return part.substring(0, 2) + '*'.repeat(part.length - 2);
-      })
-      .join(' ');
-  }
 
-  private obfuscateAccountNumber(accountNumber: string): string {
-    if (accountNumber.length <= 4) {
-      return accountNumber;
+  private buildAdditionalDataWithKeyInfo(
+    keyResolution: DifeKeyResponseDto,
+    endToEndId?: string,
+    difeExecutionId?: string,
+    molExecutionId?: string
+  ): Record<string, any> {
+    const additionalData: Record<string, any> = {};
+
+    if (endToEndId) {
+      additionalData[AdditionalDataKey.END_TO_END] = endToEndId;
     }
-    return '****' + accountNumber.slice(-4);
+    if (difeExecutionId) {
+      additionalData[AdditionalDataKey.DIFE_EXECUTION_ID] = difeExecutionId;
+    }
+    if (molExecutionId) {
+      additionalData[AdditionalDataKey.MOL_EXECUTION_ID] = molExecutionId;
+    }
+
+    if (keyResolution.key) {
+      if (keyResolution.key.person?.identification?.number) {
+        additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
+      }
+
+      const firstName = keyResolution.key.person?.name?.first_name || '';
+      const lastName = keyResolution.key.person?.name?.last_name || '';
+      const fullName = [firstName, lastName].filter(Boolean).join(' ');
+      if (fullName) {
+        additionalData.OBFUSCATED_NAME = obfuscateName(fullName);
+      } else if (keyResolution.key.person?.legal_name) {
+        additionalData.OBFUSCATED_NAME = obfuscateName(keyResolution.key.person.legal_name);
+      }
+
+      if (keyResolution.key.payment_method?.number) {
+        additionalData.ACCOUNT_NUMBER = maskAccountNumber(keyResolution.key.payment_method.number);
+      }
+
+      if (keyResolution.key.payment_method?.type) {
+        additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
+      }
+    }
+
+    return additionalData;
   }
 
   private toPaymentRequestDto(request: TransferRequestDto, keyResolution: DifeKeyResponseDto): MolPaymentRequestDto {
     const currency = request.transaction.amount.currency;
-    const key = keyResolution.key;
+    const key = keyResolution.key; //TODO: Review if should change for the new contract changes
     if (!key?.person || !key?.payment_method) {
       throw new Error('Key resolution data is missing');
     }
@@ -674,8 +648,8 @@ export class MolPaymentProvider implements IMolPaymentProvider {
           value: key.payment_method.number || ''
         }
       },
-      internal_id: keyResolution.correlation_id || '',
-      key_resolution_id: keyResolution.trace_id || '',
+      internal_id: keyResolution.correlation_id || '', //TODO: Review if should change for the new contract changes
+      key_resolution_id: keyResolution.trace_id || '', //TODO: Review if should change for the new contract changes
       payer: {
         identification: {
           type: payerConfiguration.identificationType,
@@ -744,9 +718,9 @@ export class MolPaymentProvider implements IMolPaymentProvider {
   private logMolPaymentResponse(
     response: AxiosResponse<MolPaymentResponse>,
     options: {
-      eventId: string;
-      traceId: string;
-      correlationId: string;
+      eventId?: string;
+      traceId?: string;
+      correlationId?: string;
       transactionId: string;
       internalId: string;
       endToEndId?: string;
@@ -754,12 +728,21 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     }
   ): void {
     const responseLog = buildNetworkResponseLog(response, {
-      eventId: options.eventId,
-      traceId: options.traceId,
-      correlationId: options.correlationId,
       transactionId: options.transactionId,
       retry: options.retry
     });
+
+    if (options.eventId) {
+      responseLog.eventId = options.eventId;
+    }
+
+    if (options.traceId) {
+      responseLog.traceId = options.traceId;
+    }
+
+    if (options.correlationId) {
+      responseLog.correlationId = options.correlationId;
+    }
 
     responseLog.internalId = options.internalId;
 
@@ -781,9 +764,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
   private logMolQueryResponse(
     response: AxiosResponse<MolPaymentQueryResponseDto>,
     options: {
-      eventId: string;
-      traceId: string;
-      correlationId: string;
       internalId?: string;
       endToEndId?: string;
       url: string;
@@ -791,9 +771,6 @@ export class MolPaymentProvider implements IMolPaymentProvider {
     }
   ): void {
     const responseLog = buildNetworkResponseLog(response, {
-      eventId: options.eventId,
-      traceId: options.traceId,
-      correlationId: options.correlationId,
       retry: options.retry
     });
 

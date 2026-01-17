@@ -40,6 +40,7 @@ __decorate([
 ], TransferConfirmationController.prototype, "handleConfirmation", null);
 exports.TransferConfirmationController = TransferConfirmationController = __decorate([
     (0, common_1.Controller)('transfer-confirmation'),
+    (0, common_1.UseInterceptors)(themis_1.ThHttpRequestTracingInterceptor, themis_1.ThHttpResponseTracingInterceptor),
     __metadata("design:paramtypes", [confirmation_usecase_1.ConfirmationUseCase])
 ], TransferConfirmationController);
 //# sourceMappingURL=transfer-confirmation.controller.js.map

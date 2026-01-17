@@ -323,22 +323,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       request,
       correlationId
     );
-    const state = exceptionResponse.responseCode || 'ERROR';
-    const responseData: Record<string, any> = {
-      state
+    const state = (exceptionResponse.responseCode as string | undefined) || 'ERROR';
+
+    const responseData: Record<string, string> = {
+      state,
+      ...(exceptionResponse.networkCode && { networkCode: exceptionResponse.networkCode as string }),
+      ...(exceptionResponse.networkMessage && { networkMessage: exceptionResponse.networkMessage as string }),
+      ...(exceptionResponse.key && { key: exceptionResponse.key as string }),
+      ...(exceptionResponse.keyType && { keyType: exceptionResponse.keyType as string })
     };
-    if (exceptionResponse.networkCode) {
-      responseData.networkCode = exceptionResponse.networkCode;
-    }
-    if (exceptionResponse.networkMessage) {
-      responseData.networkMessage = exceptionResponse.networkMessage;
-    }
-    if (exceptionResponse.key) {
-      responseData.key = exceptionResponse.key;
-    }
-    if (exceptionResponse.keyType) {
-      responseData.keyType = exceptionResponse.keyType;
-    }
 
     const standardResponse: ThStandardResponse<typeof responseData> = {
       code: httpStatus,

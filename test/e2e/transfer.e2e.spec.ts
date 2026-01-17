@@ -17,7 +17,7 @@ describe('Transfer E2E Tests with Mountebank', () => {
   };
 
   beforeAll(async () => {
-    process.env.NODE_ENV = 'test';
+    process.env.ENV = 'test';
     mountebankHelper = new MountebankHelper(mountebankConfig);
     await mountebankHelper.start();
 
@@ -54,22 +54,26 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupMolPaymentImposter('success');
 
       const transferRequest = {
-        transactionId: 'test-transaction-123',
         transaction: {
+          id: 'test-transaction-123',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@COLOMBIA'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@COLOMBIA'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const endToEndId = 'mol-end-to-end-id-123';
@@ -106,11 +110,11 @@ describe('Transfer E2E Tests with Mountebank', () => {
 
       const response = await transferPromise;
 
-      expect(response.status).toBe(200);
-      expect(response.body.responseCode).toBe('PENDING');
-      expect(response.body.externalTransactionId).toBeDefined();
-      expect(response.body.additionalData).toBeDefined();
-      expect(response.body.additionalData.END_TO_END).toBeDefined();
+      expect(response.status).toBe(201);
+      expect(response.body.data.state).toBe('PENDING');
+      expect(response.body.data.externalTransactionId).toBeDefined();
+      expect(response.body.data.additionalData).toBeDefined();
+      expect(response.body.data.additionalData.END_TO_END).toBeDefined();
     }, 60000);
   });
 
@@ -120,29 +124,33 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupDifeImposter('invalid_key');
 
       const transferRequest = {
-        transactionId: 'test-transaction-invalid-key',
         transaction: {
+          id: 'test-transaction-invalid-key',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@INVALIDKEY'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@INVALIDKEY'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
 
       expect(response.status).toBe(422);
-      expect(response.body.networkCode).toBeDefined();
-      expect(response.body.responseCode).toBe('REJECTED_BY_PROVIDER');
+      expect(response.body.data.networkCode).toBeDefined();
+      expect(response.body.data.state).toBe('REJECTED_BY_PROVIDER');
     });
 
     it('should handle key not found error', async () => {
@@ -150,29 +158,33 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupDifeImposter('key_not_found');
 
       const transferRequest = {
-        transactionId: 'test-transaction-key-not-found',
         transaction: {
+          id: 'test-transaction-key-not-found',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@NOTFOUND'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@NOTFOUND'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
 
       expect(response.status).toBe(422);
-      expect(response.body.networkCode).toBeDefined();
-      expect(response.body.responseCode).toBe('REJECTED_BY_PROVIDER');
+      expect(response.body.data.networkCode).toBeDefined();
+      expect(response.body.data.state).toBe('REJECTED_BY_PROVIDER');
     });
 
     it('should handle key suspended error', async () => {
@@ -180,29 +192,33 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupDifeImposter('key_suspended');
 
       const transferRequest = {
-        transactionId: 'test-transaction-key-suspended',
         transaction: {
+          id: 'test-transaction-key-suspended',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@SUSPENDED'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@SUSPENDED'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
 
       expect(response.status).toBe(422);
-      expect(response.body.networkCode).toBeDefined();
-      expect(response.body.responseCode).toBe('REJECTED_BY_PROVIDER');
+      expect(response.body.data.networkCode).toBeDefined();
+      expect(response.body.data.state).toBe('REJECTED_BY_PROVIDER');
     });
 
     it('should handle DIFE server error', async () => {
@@ -210,22 +226,26 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupDifeImposter('server_error');
 
       const transferRequest = {
-        transactionId: 'test-transaction-dife-error',
         transaction: {
+          id: 'test-transaction-dife-error',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@COLOMBIA'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@COLOMBIA'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
@@ -239,22 +259,26 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupMolPaymentImposter('success');
 
       const transferRequest = {
-        transactionId: 'test-transaction-default-key',
         transaction: {
+          id: 'test-transaction-default-key',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: 'test@test.com'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: 'test@test.com'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const endToEndId = 'mol-end-to-end-id-default';
@@ -291,11 +315,11 @@ describe('Transfer E2E Tests with Mountebank', () => {
 
       const response = await transferPromise;
 
-      expect(response.status).toBe(200);
-      expect(response.body.transactionId).toBe('test-transaction-default-key');
-      expect(response.body.responseCode).toBeDefined();
+      expect(response.status).toBe(201);
+      expect(response.body.data.transactionId).toBe('test-transaction-default-key');
+      expect(response.body.data.state).toBeDefined();
       expect(response.body.message).toBeDefined();
-      expect(response.body.responseCode).toBe('PENDING');
+      expect(response.body.data.state).toBe('PENDING');
     }, 60000);
   });
 
@@ -306,29 +330,33 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupMolPaymentImposter('validation_error');
 
       const transferRequest = {
-        transactionId: 'test-transaction-mol-validation',
         transaction: {
+          id: 'test-transaction-mol-validation',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@COLOMBIA'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@COLOMBIA'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
 
       expect(response.status).toBe(422);
-      expect(response.body.networkCode).toBeDefined();
-      expect(response.body.responseCode).toBe('REJECTED_BY_PROVIDER');
+      expect(response.body.data.networkCode).toBeDefined();
+      expect(response.body.data.state).toBe('REJECTED_BY_PROVIDER');
     });
 
     it('should handle MOL payment rejected error', async () => {
@@ -337,29 +365,33 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupMolPaymentImposter('rejected');
 
       const transferRequest = {
-        transactionId: 'test-transaction-mol-rejected',
         transaction: {
+          id: 'test-transaction-mol-rejected',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@COLOMBIA'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@COLOMBIA'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
 
       expect(response.status).toBe(422);
-      expect(response.body.networkCode).toBeDefined();
-      expect(response.body.responseCode).toBe('REJECTED_BY_PROVIDER');
+      expect(response.body.data.networkCode).toBeDefined();
+      expect(response.body.data.state).toBe('REJECTED_BY_PROVIDER');
     });
 
     it('should handle MOL server error', async () => {
@@ -368,22 +400,26 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupMolPaymentImposter('server_error');
 
       const transferRequest = {
-        transactionId: 'test-transaction-mol-error',
         transaction: {
+          id: 'test-transaction-mol-error',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@COLOMBIA'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@COLOMBIA'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
@@ -397,22 +433,26 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupOAuthImposter('invalid_credentials');
 
       const transferRequest = {
-        transactionId: 'test-transaction-oauth-error',
         transaction: {
+          id: 'test-transaction-oauth-error',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@COLOMBIA'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@COLOMBIA'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);
@@ -424,22 +464,26 @@ describe('Transfer E2E Tests with Mountebank', () => {
       await mountebankHelper.setupOAuthImposter('server_error');
 
       const transferRequest = {
-        transactionId: 'test-transaction-oauth-server-error',
         transaction: {
+          id: 'test-transaction-oauth-server-error',
           amount: {
-            value: 100.0,
+            total: 100.0,
             currency: 'COP'
           },
-          description: 'Test transfer'
-        },
-        transactionParties: {
+          description: 'Test transfer',
           payee: {
-            accountInfo: {
-              value: '@COLOMBIA'
-            }
+            account: {
+              number: '1234567890',
+              type: 'SAVINGS',
+              detail: {
+                KEY_VALUE: '@COLOMBIA'
+              }
+            },
+            name: 'Test User',
+            documentType: 'CC',
+            documentNumber: '123456789'
           }
-        },
-        additionalData: {}
+        }
       };
 
       const response = await request(app.getHttpServer()).post('/api/v1/transfer').send(transferRequest);

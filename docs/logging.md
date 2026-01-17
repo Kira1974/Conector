@@ -85,8 +85,6 @@ This standardization makes it easy to search for all network requests/responses 
 }
 ```
 
-**Note**: Initially `correlationId` is the `transactionId`, but in the response it changes to `endToEndId` when available.
-
 ### CHARON Response
 
 **When generated**: After completing transfer processing, before returning the response to the client.

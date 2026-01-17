@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ErrorMessageMapper = void 0;
 const transfer_message_enum_1 = require("../constant/transfer-message.enum");
+const HTTP_SERVER_ERROR_CODES = ['500', '502', '503', '504'];
 class ErrorMessageMapper {
     static mapToMessage(errorInfo) {
         if (!errorInfo) {
@@ -41,7 +42,9 @@ class ErrorMessageMapper {
             if (lowerDescription.includes('payment') && lowerDescription.includes('fail')) {
                 return transfer_message_enum_1.TransferMessage.PAYMENT_PROCESSING_ERROR;
             }
-            if (lowerDescription.includes('500') || lowerDescription.includes('http 500') || lowerDescription.includes('status code 500')) {
+            if (lowerDescription.includes('500') ||
+                lowerDescription.includes('http 500') ||
+                lowerDescription.includes('status code 500')) {
                 return transfer_message_enum_1.TransferMessage.UNKNOWN_ERROR;
             }
             if (lowerDescription.includes('timeout')) {
@@ -54,7 +57,7 @@ class ErrorMessageMapper {
         return `${source}: ${description}`;
     }
     static isControlledProviderError(errorInfo) {
-        if (!errorInfo || !errorInfo.code) {
+        if (!errorInfo?.code) {
             return false;
         }
         if (errorInfo.source === 'DIFE') {
@@ -170,5 +173,5 @@ ErrorMessageMapper.DIFE_UNCONTROLLED_ERRORS = [
     'DIFE-9998',
     'DIFE-9999'
 ];
-ErrorMessageMapper.MOL_UNCONTROLLED_ERRORS = ['MOL-5000', 'MOL-4017', 'MOL-4019', '500', '502', '503', '504'];
+ErrorMessageMapper.MOL_UNCONTROLLED_ERRORS = ['MOL-5000', 'MOL-4017', 'MOL-4019', ...HTTP_SERVER_ERROR_CODES];
 //# sourceMappingURL=error-message.mapper.js.map

@@ -1,17 +1,11 @@
 import { AxiosResponse } from 'axios';
 
 export interface NetworkResponseLogOptions {
-  eventId: string;
-  traceId: string;
-  correlationId: string;
   transactionId?: string;
   retry?: boolean;
 }
 
 export interface NetworkRequestLogOptions {
-  eventId: string;
-  traceId: string;
-  correlationId: string;
   transactionId?: string;
   url: string;
   method: string;
@@ -26,10 +20,7 @@ export function buildNetworkResponseLog<T>(
 ): Record<string, unknown> {
   const log: Record<string, unknown> = {
     status: response.status,
-    responseBody: JSON.stringify(response.data, null, 2),
-    eventId: options.eventId,
-    traceId: options.traceId,
-    correlationId: options.correlationId
+    responseBody: JSON.stringify(response.data, null, 2)
   };
 
   if (options.transactionId) {
@@ -46,10 +37,7 @@ export function buildNetworkResponseLog<T>(
 export function buildNetworkRequestLog(options: NetworkRequestLogOptions): Record<string, unknown> {
   const log: Record<string, unknown> = {
     url: options.url,
-    method: options.method,
-    eventId: options.eventId,
-    traceId: options.traceId,
-    correlationId: options.correlationId
+    method: options.method
   };
 
   if (options.transactionId) {

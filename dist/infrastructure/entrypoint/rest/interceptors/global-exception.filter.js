@@ -261,20 +261,12 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
         }, request, correlationId);
         const state = exceptionResponse.responseCode || 'ERROR';
         const responseData = {
-            state
+            state,
+            ...(exceptionResponse.networkCode && { networkCode: exceptionResponse.networkCode }),
+            ...(exceptionResponse.networkMessage && { networkMessage: exceptionResponse.networkMessage }),
+            ...(exceptionResponse.key && { key: exceptionResponse.key }),
+            ...(exceptionResponse.keyType && { keyType: exceptionResponse.keyType })
         };
-        if (exceptionResponse.networkCode) {
-            responseData.networkCode = exceptionResponse.networkCode;
-        }
-        if (exceptionResponse.networkMessage) {
-            responseData.networkMessage = exceptionResponse.networkMessage;
-        }
-        if (exceptionResponse.key) {
-            responseData.key = exceptionResponse.key;
-        }
-        if (exceptionResponse.keyType) {
-            responseData.keyType = exceptionResponse.keyType;
-        }
         const standardResponse = {
             code: httpStatus,
             message,

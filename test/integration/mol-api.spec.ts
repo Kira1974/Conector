@@ -295,8 +295,8 @@ describe('MOL API Integration Tests', () => {
       expect(result.additionalData?.['END_TO_END']).toBe('20251127830513238CRB001764289499493');
       expect(result.additionalData?.['MOL_EXECUTION_ID']).toBe('202511270BANKCRB00009dacd2b56');
       expect(result.additionalData?.['DOCUMENT_NUMBER']).toBe('1234567890');
-      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Jan* D**');
-      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('****6987');
+      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Jan* Do*');
+      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('***456987');
       expect(result.additionalData?.['ACCOUNT_TYPE']).toBe('CAHO');
     });
 
@@ -319,8 +319,8 @@ describe('MOL API Integration Tests', () => {
       expect(result.externalTransactionId).toBe('20251127830513238CRB001764289499494');
       expect(result.additionalData?.['END_TO_END']).toBe('20251127830513238CRB001764289499494');
       expect(result.additionalData?.['DOCUMENT_NUMBER']).toBe('1234567890');
-      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Jan* D**');
-      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('****6987');
+      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Jan* Do*');
+      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('***456987');
     });
 
     // Test: HTTP 422 - REJECTED_BY_PROVIDER

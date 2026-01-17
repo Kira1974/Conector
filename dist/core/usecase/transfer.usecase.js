@@ -182,10 +182,7 @@ let TransferUseCase = TransferUseCase_1 = class TransferUseCase {
             key.payment_method?.number);
     }
     buildLogContext(transactionId) {
-        return {
-            correlationId: transactionId,
-            transactionId
-        };
+        return { transactionId };
     }
     buildKeyResolutionRequest(request) {
         const correlationId = (0, util_1.generateCorrelationId)();
@@ -270,17 +267,12 @@ let TransferUseCase = TransferUseCase_1 = class TransferUseCase {
         });
         if (error instanceof custom_exceptions_1.KeyResolutionException) {
             const networkErrorInfo = (0, util_1.extractNetworkErrorInfo)(error.message);
-            const errorInfo = networkErrorInfo
-                ? { code: networkErrorInfo.code, description: error.message, source: networkErrorInfo.source }
-                : { code: undefined, description: error.message, source: 'DIFE' };
-            const mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
-            const responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage, true, errorInfo);
             return {
                 transactionId,
-                responseCode,
-                message: mappedMessage,
+                responseCode: transfer_response_dto_1.TransferResponseCode.VALIDATION_FAILED,
+                message: constant_1.TransferMessage.KEY_RESOLUTION_ERROR,
                 networkMessage: error.message,
-                ...(errorInfo.code && { networkCode: errorInfo.code })
+                ...(networkErrorInfo?.code && { networkCode: networkErrorInfo.code })
             };
         }
         const errorInfo = (0, util_1.extractNetworkErrorInfo)(errorMessage);

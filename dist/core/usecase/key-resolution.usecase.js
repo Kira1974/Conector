@@ -129,7 +129,7 @@ let KeyResolutionUseCase = KeyResolutionUseCase_1 = class KeyResolutionUseCase {
         const person = resolvedKey.person;
         const paymentMethod = resolvedKey.paymentMethod;
         const additionalData = (0, util_1.buildAdditionalDataFromKeyResolution)(difeResponse);
-        const personName = additionalData.OBFUSCATED_NAME || '';
+        const personName = additionalData.NAME || '';
         const accountNumber = additionalData.ACCOUNT_NUMBER || '';
         return {
             documentNumber: person.identificationNumber,

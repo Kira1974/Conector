@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildAdditionalDataFromKeyResolution = exports.obfuscateKey = exports.extractNetworkErrorInfo = exports.determineResponseCodeFromMessage = exports.isMolValidationErrorByCode = exports.isMolValidationError = exports.isDifeValidationError = exports.buildDifeErrorResponseIfAny = exports.validateKeyFormatBeforeResolution = void 0;
+exports.maskAccountNumber = exports.obfuscateName = exports.obfuscateWord = exports.buildAdditionalDataFromKeyResolution = exports.obfuscateKey = exports.extractNetworkErrorInfo = exports.determineResponseCodeFromMessage = exports.buildDifeErrorResponseIfAny = exports.validateKeyFormatBeforeResolution = void 0;
 __exportStar(require("./timestamp.util"), exports);
 __exportStar(require("./key-type.util"), exports);
 __exportStar(require("./error-message.mapper"), exports);
@@ -24,13 +24,13 @@ var key_format_validation_util_1 = require("./key-format-validation.util");
 Object.defineProperty(exports, "validateKeyFormatBeforeResolution", { enumerable: true, get: function () { return key_format_validation_util_1.validateKeyFormatBeforeResolution; } });
 var transfer_validation_util_1 = require("./transfer-validation.util");
 Object.defineProperty(exports, "buildDifeErrorResponseIfAny", { enumerable: true, get: function () { return transfer_validation_util_1.buildDifeErrorResponseIfAny; } });
-Object.defineProperty(exports, "isDifeValidationError", { enumerable: true, get: function () { return transfer_validation_util_1.isDifeValidationError; } });
-Object.defineProperty(exports, "isMolValidationError", { enumerable: true, get: function () { return transfer_validation_util_1.isMolValidationError; } });
-Object.defineProperty(exports, "isMolValidationErrorByCode", { enumerable: true, get: function () { return transfer_validation_util_1.isMolValidationErrorByCode; } });
 Object.defineProperty(exports, "determineResponseCodeFromMessage", { enumerable: true, get: function () { return transfer_validation_util_1.determineResponseCodeFromMessage; } });
 Object.defineProperty(exports, "extractNetworkErrorInfo", { enumerable: true, get: function () { return transfer_validation_util_1.extractNetworkErrorInfo; } });
 var data_transformation_util_1 = require("./data-transformation.util");
 Object.defineProperty(exports, "obfuscateKey", { enumerable: true, get: function () { return data_transformation_util_1.obfuscateKey; } });
 Object.defineProperty(exports, "buildAdditionalDataFromKeyResolution", { enumerable: true, get: function () { return data_transformation_util_1.buildAdditionalDataFromKeyResolution; } });
+Object.defineProperty(exports, "obfuscateWord", { enumerable: true, get: function () { return data_transformation_util_1.obfuscateWord; } });
+Object.defineProperty(exports, "obfuscateName", { enumerable: true, get: function () { return data_transformation_util_1.obfuscateName; } });
+Object.defineProperty(exports, "maskAccountNumber", { enumerable: true, get: function () { return data_transformation_util_1.maskAccountNumber; } });
 __exportStar(require("../mapper"), exports);
 //# sourceMappingURL=index.js.map

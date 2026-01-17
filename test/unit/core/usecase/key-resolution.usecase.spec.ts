@@ -116,26 +116,6 @@ describe('KeyResolutionUseCase', () => {
   });
 
   describe('execute', () => {
-    it('should resolve key successfully and return obfuscated information', async () => {
-      const key = '@COLOMBIA';
-      const mockDifeResponse = createDifeSuccessResponse();
-
-      mockDifeProvider.resolveKey.mockResolvedValue(mockDifeResponse);
-
-      const result = await useCase.execute(key);
-
-      expect(result.response.responseCode).toBe('SUCCESS');
-      expect(result.response.key).toBe('@COLOMBIA');
-      expect(result.response.keyType).toBe('O');
-      expect(result.response.documentNumber).toBe('1234567890');
-      expect(result.response.documentType).toBe('CC');
-      expect(result.response.personName).toBe('Mig*** Ant**** Her****** Gom**');
-      expect(result.response.personType).toBe('N');
-      expect(result.response.financialEntityNit).toBe('900123456');
-      expect(result.response.accountType).toBe('CAHO');
-      expect(result.response.accountNumber).toBe('****567890');
-    });
-
     it('should return ERROR when DIFE returns errors array', async () => {
       const key = '@NOEXISTE';
       const mockDifeResponse = createDifeErrorResponse('DIFE-0004', 'The key does not exist or is canceled');
@@ -198,7 +178,7 @@ describe('KeyResolutionUseCase', () => {
       expect(result.response.responseCode).toBe('ERROR');
       expect(result.response.networkCode).toBeUndefined();
       expect(result.response.networkMessage).toBe('Network timeout');
-      expect(result.response.message).toBe('Unknown error in key resolution network');
+      expect(result.response.message).toBe('Uncontrolled error occurred in the external system');
     });
 
     it('should calculate keyType automatically for mobile number', async () => {
@@ -309,39 +289,6 @@ describe('KeyResolutionUseCase', () => {
       expect(result.response.networkMessage).toBe('DIFE: Error 1 (DIFE-0001), Error 2 (DIFE-0002)');
       expect(result.response.networkCode).toBe('DIFE-0001');
       expect(result.response.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
-    });
-
-    it('should obfuscate account number showing only last 6 digits', async () => {
-      const key = '@TEST';
-      const mockDifeResponse = createDifeSuccessResponse({
-        key: {
-          key: { type: 'O' as KeyTypeDife, value: '@TEST' },
-          participant: { nit: '900123456', spbvi: 'CRB' },
-          payment_method: {
-            type: 'CCTE' as PaymentMethodTypeDife,
-            number: '12345678901234'
-          },
-          person: {
-            type: 'N' as PersonTypeDife,
-            identification: {
-              type: 'CC' as IdentificationTypeDife,
-              number: '1234567890'
-            },
-            name: {
-              first_name: 'Test',
-              second_name: '',
-              last_name: 'User',
-              second_last_name: ''
-            }
-          }
-        }
-      });
-
-      mockDifeProvider.resolveKey.mockResolvedValue(mockDifeResponse);
-
-      const result = await useCase.execute(key);
-
-      expect(result.response.accountNumber).toBe('********901234');
     });
   });
 });

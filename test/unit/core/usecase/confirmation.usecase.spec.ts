@@ -173,7 +173,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result.transactionId).toBe('E2E-123');
       expect(result.responseCode).toBe(TransferResponseCode.ERROR);
-      expect(result.message).toBe('Internal error');
+      expect(result.message).toBe('Unknown error occurred');
       expect(result.networkCode).toBe('ERR001');
       expect(result.networkMessage).toContain('MOL: Invalid account');
       expect(result.externalTransactionId).toBe('E2E-123');
@@ -187,7 +187,7 @@ describe('ConfirmationUseCase', () => {
         expect.objectContaining({
           transactionId: 'E2E-123',
           responseCode: TransferResponseCode.ERROR,
-          message: 'Internal error'
+          message: 'Unknown error occurred'
         }),
         'webhook'
       );
@@ -276,8 +276,6 @@ describe('ConfirmationUseCase', () => {
         expect.objectContaining({
           notificationId: 'NOTIF-001',
           source: 'credibanco',
-          correlationId: '20251120135790864CRB001763694229136',
-          eventId: '20251120135790864CRB001763694229136',
           executionId: '202511200BANKCRB00029a85dc48b',
           eventName: 'settlement.result'
         })
@@ -302,7 +300,7 @@ describe('ConfirmationUseCase', () => {
 
       expect(result.networkCode).toBe('ERR001');
       expect(result.networkMessage).toContain('MOL: Single error message');
-      expect(result.message).toBe('Internal error');
+      expect(result.message).toBe('Unknown error occurred');
     });
 
     it('should handle empty errors array', () => {

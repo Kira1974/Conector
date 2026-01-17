@@ -6,8 +6,6 @@ import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/
 
 import { ErrorMessageMapper, NetworkErrorInfo } from './error-message.mapper';
 
-const DIFE_VALIDATION_ERROR_CODE_MIN = 4000;
-const DIFE_VALIDATION_ERROR_CODE_MAX = 6000;
 const DEFAULT_DIFE_ERROR_MESSAGE = 'DIFE error';
 
 export function buildDifeErrorResponseIfAny(
@@ -57,85 +55,6 @@ export function validateKeyFormatBeforeResolution(request: TransferRequestDto): 
   }
 
   return null;
-}
-
-export function isDifeValidationError(errorMessage: string): boolean {
-  if (!errorMessage) {
-    return false;
-  }
-
-  const difeErrorCodePattern = /(DIFE-\d{4})/;
-  const match = errorMessage.match(difeErrorCodePattern);
-  if (!match) {
-    return false;
-  }
-
-  const errorCode = match[0];
-  const validationErrorCodes = ['DIFE-0004', 'DIFE-0005', 'DIFE-4000', 'DIFE-4001', 'DIFE-5005'];
-  if (validationErrorCodes.includes(errorCode)) {
-    return true;
-  }
-
-  const codeNumber = parseInt(match[1], 10);
-  return codeNumber >= DIFE_VALIDATION_ERROR_CODE_MIN && codeNumber < DIFE_VALIDATION_ERROR_CODE_MAX;
-}
-
-const MOL_VALIDATION_ERROR_CODES = [
-  '400',
-  '403',
-  'MOL-4003',
-  'MOL-4006',
-  'MOL-4007',
-  'MOL-4008',
-  'MOL-4009',
-  'MOL-4010',
-  'MOL-4011',
-  'MOL-4012',
-  'MOL-4013',
-  'MOL-4014',
-  'MOL-4016',
-  'MOL-5005'
-] as const;
-
-export function isMolValidationError(errorMessage: string): boolean {
-  if (!errorMessage) {
-    return false;
-  }
-
-  const molErrorCodePattern = /(MOL-\d{4})/;
-  const molMatch = errorMessage.match(molErrorCodePattern);
-  if (molMatch) {
-    const errorCode = molMatch[1];
-    return MOL_VALIDATION_ERROR_CODES.includes(errorCode as (typeof MOL_VALIDATION_ERROR_CODES)[number]);
-  }
-
-  const httpErrorPattern = /(?:status code|http|:\s*)(400|403)/i;
-  const httpMatch = errorMessage.match(httpErrorPattern);
-  if (httpMatch) {
-    return true;
-  }
-
-  if (errorMessage.includes(': 400') || errorMessage.includes(': 403')) {
-    return true;
-  }
-
-  if (errorMessage.includes('400:') || errorMessage.includes('403:')) {
-    return true;
-  }
-
-  return false;
-}
-
-export function isMolValidationErrorByCode(errorInfo: { code?: string; source?: string } | null): boolean {
-  if (!errorInfo || errorInfo.source !== 'MOL') {
-    return false;
-  }
-
-  if (!errorInfo.code) {
-    return false;
-  }
-
-  return MOL_VALIDATION_ERROR_CODES.includes(errorInfo.code as (typeof MOL_VALIDATION_ERROR_CODES)[number]);
 }
 
 export function determineResponseCodeFromMessage(
@@ -201,59 +120,4 @@ export function extractNetworkErrorInfo(errorMessage: string): { code?: string; 
   }
 
   return null;
-}
-
-export function buildAdditionalDataFromKeyResolution(keyResolution: DifeKeyResponseDto): Record<string, string> {
-  if (!keyResolution.key) {
-    return {};
-  }
-
-  const key = keyResolution.key;
-  const accountNumber = key.payment_method?.number;
-  const accountType = key.payment_method?.type;
-  const documentNumber = key.person?.identification?.number;
-  const firstName = key.person?.name?.first_name;
-  const secondName = key.person?.name?.second_name;
-  const lastName = key.person?.name?.last_name;
-  const secondLastName = key.person?.name?.second_last_name;
-  const legalName = key.person?.legal_name;
-
-  const obfuscatedName = buildObfuscatedName(firstName, secondName, lastName, secondLastName, legalName);
-
-  return {
-    ...(accountNumber && { ACCOUNT_NUMBER: accountNumber }),
-    ...(accountType && { ACCOUNT_TYPE: accountType }),
-    ...(documentNumber && { DOCUMENT_NUMBER: documentNumber }),
-    ...(obfuscatedName && { OBFUSCATED_NAME: obfuscatedName })
-  };
-}
-
-function buildObfuscatedName(
-  firstName?: string,
-  secondName?: string,
-  lastName?: string,
-  secondLastName?: string,
-  legalName?: string
-): string | null {
-  if (legalName) {
-    return obfuscateText(legalName);
-  }
-
-  const nameParts = [firstName, secondName, lastName, secondLastName].filter((part) => part && part.trim() !== '');
-
-  if (nameParts.length === 0) {
-    return null;
-  }
-
-  return nameParts.map((part) => obfuscateText(part)).join(' ');
-}
-
-function obfuscateText(text: string): string {
-  if (!text || text.length <= 3) {
-    return text;
-  }
-
-  const firstThree = text.slice(0, 3);
-  const asterisks = '*'.repeat(text.length - 3);
-  return `${firstThree}${asterisks}`;
 }

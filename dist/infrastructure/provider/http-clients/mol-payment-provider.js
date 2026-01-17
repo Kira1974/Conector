@@ -57,13 +57,13 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 url,
                 method: 'POST',
                 requestBody: JSON.stringify(dto, null, 2),
-                eventId: molEventId,
-                traceId: molTraceId,
-                correlationId: molRequestCorrelationId,
                 transactionId: request.transaction.id,
                 headers,
                 enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
             });
+            requestLog.eventId = molEventId;
+            requestLog.traceId = molTraceId;
+            requestLog.correlationId = molRequestCorrelationId;
             requestLog.internalId = dto.internal_id;
             this.logger.log('NETWORK_REQUEST MOL', requestLog);
             let response = await this.http.instance.post(url, dto, {
@@ -82,8 +82,6 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
             });
             if (response.status === 401 || response.status === 403) {
                 this.logger.warn('MOL request failed with authentication error, clearing token cache and retrying', {
-                    eventId: molEventId,
-                    traceId: molTraceId,
                     correlationId: molRequestCorrelationId,
                     transactionId: request.transaction.id,
                     status: response.status
@@ -140,9 +138,6 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
             const requestLog = (0, network_log_util_1.buildNetworkRequestLog)({
                 url: fullUrl,
                 method: 'GET',
-                eventId: queryEventId,
-                traceId: queryTraceId,
-                correlationId: queryCorrelationId,
                 headers,
                 enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
             });
@@ -159,9 +154,6 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                 timeout: requestTimeout
             });
             this.logMolQueryResponse(response, {
-                eventId: queryEventId,
-                traceId: queryTraceId,
-                correlationId: queryCorrelationId,
                 internalId: request.internal_id,
                 endToEndId: request.end_to_end_id,
                 url: fullUrl
@@ -181,9 +173,6 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
                     timeout: requestTimeout
                 });
                 this.logMolQueryResponse(response, {
-                    eventId: queryEventId,
-                    traceId: queryTraceId,
-                    correlationId: queryCorrelationId,
                     internalId: request.internal_id,
                     endToEndId: request.end_to_end_id,
                     url: fullUrl,
@@ -277,31 +266,7 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
         const endToEndId = response.data?.end_to_end_id;
         const errorCode = response.data?.error?.code || response.data?.errors?.[0]?.code || '';
         const errorMessage = response.data?.error?.description || response.data?.error?.message || '';
-        const additionalData = {
-            [model_1.AdditionalDataKey.END_TO_END]: endToEndId,
-            [model_1.AdditionalDataKey.DIFE_EXECUTION_ID]: difeExecutionId,
-            [model_1.AdditionalDataKey.MOL_EXECUTION_ID]: molExecutionId
-        };
-        if (keyResolution.key) {
-            if (keyResolution.key.person?.identification?.number) {
-                additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
-            }
-            const firstName = keyResolution.key.person?.name?.first_name || '';
-            const lastName = keyResolution.key.person?.name?.last_name || '';
-            const fullName = [firstName, lastName].filter(Boolean).join(' ');
-            if (fullName) {
-                additionalData.OBFUSCATED_NAME = this.obfuscateName(fullName);
-            }
-            else if (keyResolution.key.person?.legal_name) {
-                additionalData.OBFUSCATED_NAME = this.obfuscateName(keyResolution.key.person.legal_name);
-            }
-            if (keyResolution.key.payment_method?.number) {
-                additionalData.ACCOUNT_NUMBER = this.obfuscateAccountNumber(keyResolution.key.payment_method.number);
-            }
-            if (keyResolution.key.payment_method?.type) {
-                additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
-            }
-        }
+        const additionalData = this.buildAdditionalDataWithKeyInfo(keyResolution, endToEndId, difeExecutionId, molExecutionId);
         if (errorCode) {
             additionalData.NETWORK_CODE = errorCode;
         }
@@ -412,33 +377,7 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
             };
             const mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
             const responseCode = (0, util_1.determineResponseCodeFromMessage)(mappedMessage, true, errorInfo);
-            const additionalData = {
-                [model_1.AdditionalDataKey.DIFE_EXECUTION_ID]: keyResolution.execution_id
-            };
-            if (keyResolution.key) {
-                if (keyResolution.key.person?.identification?.number) {
-                    additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
-                }
-                const firstName = keyResolution.key.person?.name?.first_name || '';
-                const lastName = keyResolution.key.person?.name?.last_name || '';
-                const fullName = [firstName, lastName].filter(Boolean).join(' ');
-                if (fullName) {
-                    additionalData.OBFUSCATED_NAME = this.obfuscateName(fullName);
-                }
-                else if (keyResolution.key.person?.legal_name) {
-                    additionalData.OBFUSCATED_NAME = this.obfuscateName(keyResolution.key.person.legal_name);
-                }
-                if (keyResolution.key.payment_method?.number) {
-                    additionalData.ACCOUNT_NUMBER = this.obfuscateAccountNumber(keyResolution.key.payment_method.number);
-                }
-                if (keyResolution.key.payment_method?.type) {
-                    additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
-                }
-            }
-            if (endToEndId)
-                additionalData[model_1.AdditionalDataKey.END_TO_END] = endToEndId;
-            if (executionId)
-                additionalData[model_1.AdditionalDataKey.MOL_EXECUTION_ID] = executionId;
+            const additionalData = this.buildAdditionalDataWithKeyInfo(keyResolution, endToEndId, keyResolution.execution_id, executionId);
             return {
                 transactionId: request.transaction.id,
                 responseCode,
@@ -503,25 +442,38 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
             additionalData
         };
     }
-    obfuscateName(name) {
-        const parts = name.split(' ').filter(Boolean);
-        return parts
-            .map((part) => {
-            if (part.length <= 2) {
-                return part.charAt(0) + '*'.repeat(part.length - 1);
-            }
-            if (part.length === 3) {
-                return part.charAt(0) + '*'.repeat(2);
-            }
-            return part.substring(0, 2) + '*'.repeat(part.length - 2);
-        })
-            .join(' ');
-    }
-    obfuscateAccountNumber(accountNumber) {
-        if (accountNumber.length <= 4) {
-            return accountNumber;
+    buildAdditionalDataWithKeyInfo(keyResolution, endToEndId, difeExecutionId, molExecutionId) {
+        const additionalData = {};
+        if (endToEndId) {
+            additionalData[model_1.AdditionalDataKey.END_TO_END] = endToEndId;
         }
-        return '****' + accountNumber.slice(-4);
+        if (difeExecutionId) {
+            additionalData[model_1.AdditionalDataKey.DIFE_EXECUTION_ID] = difeExecutionId;
+        }
+        if (molExecutionId) {
+            additionalData[model_1.AdditionalDataKey.MOL_EXECUTION_ID] = molExecutionId;
+        }
+        if (keyResolution.key) {
+            if (keyResolution.key.person?.identification?.number) {
+                additionalData.DOCUMENT_NUMBER = keyResolution.key.person.identification.number;
+            }
+            const firstName = keyResolution.key.person?.name?.first_name || '';
+            const lastName = keyResolution.key.person?.name?.last_name || '';
+            const fullName = [firstName, lastName].filter(Boolean).join(' ');
+            if (fullName) {
+                additionalData.OBFUSCATED_NAME = (0, util_1.obfuscateName)(fullName);
+            }
+            else if (keyResolution.key.person?.legal_name) {
+                additionalData.OBFUSCATED_NAME = (0, util_1.obfuscateName)(keyResolution.key.person.legal_name);
+            }
+            if (keyResolution.key.payment_method?.number) {
+                additionalData.ACCOUNT_NUMBER = (0, util_1.maskAccountNumber)(keyResolution.key.payment_method.number);
+            }
+            if (keyResolution.key.payment_method?.type) {
+                additionalData.ACCOUNT_TYPE = keyResolution.key.payment_method.type;
+            }
+        }
+        return additionalData;
     }
     toPaymentRequestDto(request, keyResolution) {
         const currency = request.transaction.amount.currency;
@@ -620,12 +572,18 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
     }
     logMolPaymentResponse(response, options) {
         const responseLog = (0, network_log_util_1.buildNetworkResponseLog)(response, {
-            eventId: options.eventId,
-            traceId: options.traceId,
-            correlationId: options.correlationId,
             transactionId: options.transactionId,
             retry: options.retry
         });
+        if (options.eventId) {
+            responseLog.eventId = options.eventId;
+        }
+        if (options.traceId) {
+            responseLog.traceId = options.traceId;
+        }
+        if (options.correlationId) {
+            responseLog.correlationId = options.correlationId;
+        }
         responseLog.internalId = options.internalId;
         if (options.endToEndId) {
             responseLog.externalTransactionId = options.endToEndId;
@@ -638,9 +596,6 @@ let MolPaymentProvider = MolPaymentProvider_1 = class MolPaymentProvider {
     }
     logMolQueryResponse(response, options) {
         const responseLog = (0, network_log_util_1.buildNetworkResponseLog)(response, {
-            eventId: options.eventId,
-            traceId: options.traceId,
-            correlationId: options.correlationId,
             retry: options.retry
         });
         responseLog.url = options.url;

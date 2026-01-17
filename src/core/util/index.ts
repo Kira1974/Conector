@@ -9,14 +9,17 @@ export * from './error-constants.util';
 export { validateKeyFormatBeforeResolution } from './key-format-validation.util';
 export {
   buildDifeErrorResponseIfAny,
-  isDifeValidationError,
-  isMolValidationError,
-  isMolValidationErrorByCode,
   determineResponseCodeFromMessage,
   extractNetworkErrorInfo
 } from './transfer-validation.util';
 
-export { obfuscateKey, buildAdditionalDataFromKeyResolution } from './data-transformation.util';
+export {
+  obfuscateKey,
+  buildAdditionalDataFromKeyResolution,
+  obfuscateWord,
+  obfuscateName,
+  maskAccountNumber
+} from './data-transformation.util';
 
 // Mappers
 export * from '../mapper';

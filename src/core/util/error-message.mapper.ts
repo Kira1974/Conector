@@ -6,6 +6,8 @@ export interface NetworkErrorInfo {
   source: 'DIFE' | 'MOL';
 }
 
+const HTTP_SERVER_ERROR_CODES = ['500', '502', '503', '504'] as const;
+
 export class ErrorMessageMapper {
   private static readonly DIFE_ERROR_CODE_MAP: Record<string, TransferMessage> = {
     'DIFE-0001': TransferMessage.KEY_RESOLUTION_ERROR,
@@ -114,7 +116,7 @@ export class ErrorMessageMapper {
     'DIFE-9999'
   ];
 
-  private static readonly MOL_UNCONTROLLED_ERRORS = ['MOL-5000', 'MOL-4017', 'MOL-4019', '500', '502', '503', '504'];
+  private static readonly MOL_UNCONTROLLED_ERRORS = ['MOL-5000', 'MOL-4017', 'MOL-4019', ...HTTP_SERVER_ERROR_CODES];
 
   static mapToMessage(errorInfo: NetworkErrorInfo | null): TransferMessage {
     if (!errorInfo) {
@@ -177,7 +179,7 @@ export class ErrorMessageMapper {
   }
 
   static isControlledProviderError(errorInfo: NetworkErrorInfo | null): boolean {
-    if (!errorInfo || !errorInfo.code) {
+    if (!errorInfo?.code) {
       return false;
     }
 

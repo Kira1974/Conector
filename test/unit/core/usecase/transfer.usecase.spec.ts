@@ -151,8 +151,8 @@ describe('TransferUseCase', () => {
       expect(result.externalTransactionId).toBe('MOL-PAY-123');
       expect(result.additionalData?.['END_TO_END']).toBe('E2E-456');
       expect(result.additionalData?.['DOCUMENT_NUMBER']).toBe('1234567890');
-      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Lau** Tur** Dan**** Dra**');
-      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('****567890');
+      expect(result.additionalData?.['NAME']).toBe('Laura Turga Daniela Drama');
+      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('1234567890');
       expect(result.additionalData?.['ACCOUNT_TYPE']).toBe('CAHO');
 
       expect(mockDifeProvider.resolveKey).toHaveBeenCalledWith(
@@ -189,7 +189,7 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(invalidKeyRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.REJECTED_BY_PROVIDER);
+      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
       expect(result.message).toBe(TransferMessage.INVALID_KEY_FORMAT);
       expect(mockDifeProvider.resolveKey).not.toHaveBeenCalled();
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
@@ -209,11 +209,10 @@ describe('TransferUseCase', () => {
               number: '1234567890',
               detail: {
                 KEY_VALUE: '3001234567',
-                BREB_DIFE_CORRELATION_ID: 'CORR-FROM-DOMAIN',
-                BREB_DIFE_TRACE_ID: 'TRACE-FROM-DOMAIN',
-                BREB_KEY_TYPE: 'O',
-                BREB_PARTICIPANT_NIT: '900123456',
-                BREB_PARTICIPANT_SPBVI: 'CRB'
+                DIFE_TRACE_ID: 'TRACE-FROM-DOMAIN',
+                KEY_TYPE: 'O',
+                PARTICIPANT_NIT: '900123456',
+                PARTICIPANT_SPBVI: 'CRB'
               }
             }
           },
@@ -354,7 +353,7 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.responseCode).toBe(TransferResponseCode.PROVIDER_ERROR);
       expect(result.networkCode).toBe('DIFE-0001');
       expect(result.networkMessage).toContain('DIFE:');
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
@@ -404,7 +403,7 @@ describe('TransferUseCase', () => {
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
     });
 
-    it('should return ERROR when DIFE returns non-validation error (DIFE-0001)', async () => {
+    it('should return PROVIDER_ERROR when DIFE returns non-validation error (DIFE-0001)', async () => {
       const nonValidationError = new Error(
         'External service error in https://keymgmt-test.opencco.com/v1/key/resolve: DIFE API error: System error (DIFE-0001)'
       );
@@ -412,7 +411,7 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
+      expect(result.responseCode).toBe(TransferResponseCode.PROVIDER_ERROR);
       expect(result.networkCode).toBe('DIFE-0001');
       expect(result.networkMessage).toContain('DIFE-0001');
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();

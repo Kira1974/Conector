@@ -96,7 +96,12 @@ describe('TransferController', () => {
       expect(mockResponse.json).toHaveBeenCalledWith({
         code: 200,
         message: mockResponseDto.message,
-        data: mockResponseDto
+        data: {
+          state: mockResponseDto.responseCode,
+          transactionId: mockResponseDto.transactionId,
+          externalTransactionId: mockResponseDto.externalTransactionId,
+          additionalData: mockResponseDto.additionalData
+        }
       });
       expect(transferUseCase.executeTransfer).toHaveBeenCalledWith(mockRequest);
       expect(mockLogger.log).toHaveBeenCalledWith(
@@ -113,7 +118,7 @@ describe('TransferController', () => {
         expect.objectContaining({
           status: 200,
           transactionId: mockResponseDto.transactionId,
-          responseCode: mockResponseDto.responseCode
+          state: mockResponseDto.responseCode
         })
       );
     });
@@ -133,7 +138,10 @@ describe('TransferController', () => {
       expect(mockResponse.json).toHaveBeenCalledWith({
         code: 422,
         message: mockErrorResponse.message,
-        data: mockErrorResponse
+        data: {
+          state: mockErrorResponse.responseCode,
+          transactionId: mockErrorResponse.transactionId
+        }
       });
       expect(transferUseCase.executeTransfer).toHaveBeenCalledWith(mockRequest);
     });
@@ -162,7 +170,7 @@ describe('TransferController', () => {
         expect.objectContaining({
           status: 200,
           transactionId: mockResponseDto.transactionId,
-          responseCode: mockResponseDto.responseCode
+          state: mockResponseDto.responseCode
         })
       );
     });

@@ -8,7 +8,7 @@ var AdditionalDataKey;
     AdditionalDataKey["MOL_EXECUTION_ID"] = "MOL_EXECUTION_ID";
     AdditionalDataKey["DIFE_EXECUTION_ID"] = "DIFE_EXECUTION_ID";
     AdditionalDataKey["DOCUMENT_NUMBER"] = "DOCUMENT_NUMBER";
-    AdditionalDataKey["OBFUSCATED_NAME"] = "OBFUSCATED_NAME";
+    AdditionalDataKey["NAME"] = "NAME";
     AdditionalDataKey["ACCOUNT_NUMBER"] = "ACCOUNT_NUMBER";
     AdditionalDataKey["ACCOUNT_TYPE"] = "ACCOUNT_TYPE";
 })(AdditionalDataKey || (exports.AdditionalDataKey = AdditionalDataKey = {}));

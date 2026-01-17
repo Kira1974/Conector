@@ -159,7 +159,7 @@ export class KeyResolutionUseCase {
     const paymentMethod = resolvedKey.paymentMethod;
 
     const additionalData = buildAdditionalDataFromKeyResolution(difeResponse);
-    const personName = additionalData.OBFUSCATED_NAME || '';
+    const personName = additionalData.NAME || '';
     const accountNumber = additionalData.ACCOUNT_NUMBER || '';
 
     return {

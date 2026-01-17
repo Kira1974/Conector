@@ -42,36 +42,18 @@ let TransferController = TransferController_1 = class TransferController {
         const responseDto = await this.transferUseCase.executeTransfer(request);
         const httpStatus = http_status_mapper_1.HttpStatusMapper.mapResponseCodeToHttpStatus(responseDto.responseCode);
         const endToEndId = responseDto.additionalData?.END_TO_END;
-        const finalCorrelationId = endToEndId || responseDto.transactionId;
-        const responseData = {
-            state: responseDto.responseCode
-        };
-        if (responseDto.transactionId) {
-            responseData.transactionId = responseDto.transactionId;
-        }
-        if (responseDto.externalTransactionId) {
-            responseData.externalTransactionId = responseDto.externalTransactionId;
-        }
-        if (responseDto.networkCode) {
-            responseData.networkCode = responseDto.networkCode;
-        }
-        if (responseDto.networkMessage) {
-            responseData.networkMessage = responseDto.networkMessage;
-        }
-        if (responseDto.additionalData && Object.keys(responseDto.additionalData).length > 0) {
-            responseData.additionalData = responseDto.additionalData;
-        }
+        const { responseCode, message, ...rest } = responseDto;
         const standardResponse = {
             code: httpStatus,
-            message: responseDto.message,
-            data: responseData
+            message,
+            data: {
+                state: responseCode,
+                ...rest,
+            }
         };
         this.logger.log('CHARON Response', {
             status: httpStatus,
             transactionId: responseDto.transactionId,
-            eventId,
-            traceId,
-            correlationId: finalCorrelationId,
             endToEndId,
             state: responseDto.responseCode,
             responseBody: JSON.stringify(standardResponse, null, 2)
@@ -94,6 +76,7 @@ __decorate([
 ], TransferController.prototype, "transfer", null);
 exports.TransferController = TransferController = TransferController_1 = __decorate([
     (0, common_1.Controller)('transfer'),
+    (0, common_1.UseInterceptors)(themis_1.ThHttpRequestTracingInterceptor, themis_1.ThHttpResponseTracingInterceptor),
     __metadata("design:paramtypes", [usecase_1.TransferUseCase,
         themis_1.ThLoggerService])
 ], TransferController);

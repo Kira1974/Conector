@@ -28,6 +28,11 @@ let TransferConfigService = class TransferConfigService {
     isPollingEnabled() {
         return this.config.get('transfer.enablePolling');
     }
+    isCleanupIntervalEnabled() {
+        return this.config.has('transfer.enableCleanupInterval')
+            ? this.config.get('transfer.enableCleanupInterval')
+            : true;
+    }
 };
 exports.TransferConfigService = TransferConfigService;
 exports.TransferConfigService = TransferConfigService = __decorate([
