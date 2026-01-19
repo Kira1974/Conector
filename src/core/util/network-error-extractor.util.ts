@@ -18,11 +18,6 @@ export function extractNetworkErrorInfo(errorMessage: string): NetworkErrorInfo 
     return difeError;
   }
 
-  const difeCodeInParentheses = extractDifeCodeInParentheses(errorMessage);
-  if (difeCodeInParentheses) {
-    return difeCodeInParentheses;
-  }
-
   const molErrorCode = extractMolErrorCode(errorMessage);
   if (molErrorCode) {
     return molErrorCode;
@@ -63,19 +58,6 @@ function extractDifeError(errorMessage: string): NetworkErrorInfo | null {
     return {
       code: difeMatch[2],
       description: difeMatch[1],
-      source: ERROR_SOURCE_DIFE
-    };
-  }
-  return null;
-}
-
-function extractDifeCodeInParentheses(errorMessage: string): NetworkErrorInfo | null {
-  const difeCodePattern = /(.+?)\s*\((DIFE-\d{4})\)/;
-  const match = errorMessage.match(difeCodePattern);
-  if (match) {
-    return {
-      code: match[2],
-      description: match[1].trim(),
       source: ERROR_SOURCE_DIFE
     };
   }

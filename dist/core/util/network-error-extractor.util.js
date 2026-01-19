@@ -16,10 +16,6 @@ function extractNetworkErrorInfo(errorMessage) {
     if (difeError) {
         return difeError;
     }
-    const difeCodeInParentheses = extractDifeCodeInParentheses(errorMessage);
-    if (difeCodeInParentheses) {
-        return difeCodeInParentheses;
-    }
     const molErrorCode = extractMolErrorCode(errorMessage);
     if (molErrorCode) {
         return molErrorCode;
@@ -54,18 +50,6 @@ function extractDifeError(errorMessage) {
         return {
             code: difeMatch[2],
             description: difeMatch[1],
-            source: error_constants_util_1.ERROR_SOURCE_DIFE
-        };
-    }
-    return null;
-}
-function extractDifeCodeInParentheses(errorMessage) {
-    const difeCodePattern = /(.+?)\s*\((DIFE-\d{4})\)/;
-    const match = errorMessage.match(difeCodePattern);
-    if (match) {
-        return {
-            code: match[2],
-            description: match[1].trim(),
             source: error_constants_util_1.ERROR_SOURCE_DIFE
         };
     }

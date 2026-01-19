@@ -1,77 +1,57 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ThLogger,
-  ThLoggerService,
-  ThLoggerComponent,
-  ThStandardResponse,
-  ThResponseBuilder,
-  ThAppStatusCode
-} from 'themis';
+import { ThLogger, ThLoggerService, ThLoggerComponent } from 'themis';
 
 import { IDifeProvider } from '@core/provider';
 import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
-import { calculateKeyType, generateCorrelationId } from '@core/util';
-import { extractNetworkErrorInfo } from '@core/util/network-error-extractor.util';
-import { ErrorMessageMapper } from '@core/util/error-message.mapper';
+import { calculateKeyType, generateCorrelationId, buildAdditionalDataFromKeyResolution } from '@core/util';
+import { KeyResolutionException } from '@core/exception/custom.exceptions';
+import { KeyResolutionResponseDto } from '@infrastructure/entrypoint/dto';
+import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
 import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 import { TransferMessage } from '@core/constant';
-import {
-  AccountQuerySuccessDataDto,
-  AccountQueryErrorDataDto,
-  UserDataDto,
-  AccountInfoDto,
-  AccountDetailDto
-} from '@infrastructure/entrypoint/dto';
-import { StandardizedResponseCodeMapper } from '@infrastructure/entrypoint/rest/mappers/standardized-response-code.mapper';
 
-export type AccountQueryResponseDto = ThStandardResponse<AccountQuerySuccessDataDto | AccountQueryErrorDataDto>;
-
-export interface AccountQueryResult {
-  response: AccountQueryResponseDto;
+export interface KeyResolutionResult {
+  response: KeyResolutionResponseDto;
   correlationId: string;
   difeExecutionId?: string;
-  httpStatus: number;
 }
-
 @Injectable()
-export class AccountQueryUseCase {
+export class KeyResolutionUseCase {
   private readonly logger: ThLogger;
 
   constructor(
     private readonly difeProvider: IDifeProvider,
     private readonly loggerService: ThLoggerService
   ) {
-    this.logger = this.loggerService.getLogger(AccountQueryUseCase.name, ThLoggerComponent.APPLICATION);
+    this.logger = this.loggerService.getLogger(KeyResolutionUseCase.name, ThLoggerComponent.APPLICATION);
   }
 
-  async execute(keyValue: string): Promise<AccountQueryResult> {
-    const keyType = calculateKeyType(keyValue);
+  async execute(key: string): Promise<KeyResolutionResult> {
+    const keyType = calculateKeyType(key);
     const correlationId = generateCorrelationId();
 
     try {
       const request: KeyResolutionRequest = {
         correlationId,
-        key: keyValue,
+        key,
         keyType
       };
 
       const difeResponse = await this.difeProvider.resolveKey(request);
       const keyResolution: KeyResolutionResponse = this.mapDifeResponseToDomain(difeResponse, correlationId);
-      const { response, httpStatus } = this.processKeyResolution(keyResolution, keyValue, keyType, correlationId);
+      const responseDto = this.processKeyResolution(keyResolution, difeResponse, key, keyType, correlationId);
 
       return {
-        response,
+        response: responseDto,
         correlationId,
-        difeExecutionId: difeResponse.execution_id,
-        httpStatus
+        difeExecutionId: difeResponse.execution_id
       };
     } catch (error: unknown) {
-      const { response, httpStatus } = this.handleError(error, correlationId);
+      const errorResponse = this.handleError(error, key, keyType, correlationId);
 
       return {
-        response,
-        correlationId,
-        httpStatus
+        response: errorResponse,
+        correlationId
       };
     }
   }
@@ -132,10 +112,11 @@ export class AccountQueryUseCase {
 
   private processKeyResolution(
     keyResolution: KeyResolutionResponse,
-    keyValue: string,
+    difeResponse: DifeKeyResponseDto,
+    key: string,
     keyType: string,
     correlationId: string
-  ): { response: AccountQueryResponseDto; httpStatus: number } {
+  ): KeyResolutionResponseDto {
     if (keyResolution.errors && keyResolution.errors.length > 0) {
       const errorMessage = keyResolution.errors.join(', ');
 
@@ -146,7 +127,7 @@ export class AccountQueryUseCase {
         errorCodes: keyResolution.errors
       });
 
-      return this.buildErrorResponse(errorMessage);
+      return this.buildErrorResponse(key, keyType, errorMessage);
     }
 
     if (!keyResolution.resolvedKey) {
@@ -155,7 +136,7 @@ export class AccountQueryUseCase {
         difeCorrelationId: keyResolution.correlationId || correlationId
       });
 
-      return this.buildErrorResponse('Key resolution failed');
+      return this.buildErrorResponse(key, keyType, 'Key resolution failed');
     }
 
     this.logger.log('Key resolved successfully', {
@@ -164,97 +145,86 @@ export class AccountQueryUseCase {
       difeExecutionId: keyResolution.executionId
     });
 
-    return this.buildSuccessResponse(keyValue, keyType, keyResolution);
+    return this.buildSuccessResponse(key, keyType, keyResolution, difeResponse);
   }
 
   private buildSuccessResponse(
-    keyValue: string,
+    key: string,
     keyType: string,
-    keyResolution: KeyResolutionResponse
-  ): { response: AccountQueryResponseDto; httpStatus: number } {
+    keyResolution: KeyResolutionResponse,
+    difeResponse: DifeKeyResponseDto
+  ): KeyResolutionResponseDto {
     const resolvedKey = keyResolution.resolvedKey;
     const person = resolvedKey.person;
     const paymentMethod = resolvedKey.paymentMethod;
 
-    const nameParts: string[] = [];
-    if (person.firstName) nameParts.push(person.firstName);
-    if (person.secondName) nameParts.push(person.secondName);
-    if (person.lastName) nameParts.push(person.lastName);
-    if (person.secondLastName) nameParts.push(person.secondLastName);
-    const fullName = nameParts.length > 0 ? nameParts.join(' ') : person.legalCompanyName || 'Unknown';
-
-    const accountDetail: AccountDetailDto = {
-      KEY_VALUE: keyValue,
-      BREB_DIFE_CORRELATION_ID: keyResolution.correlationId || '',
-      BREB_DIFE_TRACE_ID: keyResolution.traceId || '',
-      BREB_DIFE_EXECUTION_ID: keyResolution.executionId,
-      BREB_KEY_TYPE: keyType,
-      BREB_PARTICIPANT_NIT: resolvedKey.participant.nit,
-      BREB_PARTICIPANT_SPBVI: resolvedKey.participant.spbvi
-    };
-
-    const accountInfo: AccountInfoDto = {
-      type: paymentMethod.type,
-      number: paymentMethod.number,
-      detail: accountDetail
-    };
-
-    const userData: UserDataDto = {
-      name: fullName,
-      personType: person.personType,
-      documentType: person.identificationType,
-      documentNumber: person.identificationNumber,
-      account: accountInfo
-    };
-
-    const data: AccountQuerySuccessDataDto = {
-      externalTransactionId: keyResolution.executionId || '',
-      state: 'SUCCESFUL',
-      userData
-    };
-
-    const response = ThResponseBuilder.created(data, TransferMessage.KEY_RESOLUTION_SUCCESS);
+    const additionalData = buildAdditionalDataFromKeyResolution(difeResponse);
+    const personName = additionalData.OBFUSCATED_NAME || '';
+    const accountNumber = additionalData.ACCOUNT_NUMBER || '';
 
     return {
-      response,
-      httpStatus: ThAppStatusCode.CREATED
+      documentNumber: person.identificationNumber,
+      documentType: person.identificationType,
+      personName,
+      personType: person.personType,
+      financialEntityNit: resolvedKey.participant.nit,
+      accountType: paymentMethod.type,
+      accountNumber,
+      key,
+      keyType,
+      responseCode: 'SUCCESS',
+      message: TransferMessage.KEY_RESOLUTION_SUCCESS
     };
   }
 
-  private buildErrorResponse(errorMessage: string): { response: AccountQueryResponseDto; httpStatus: number } {
-    const errorInfo = extractNetworkErrorInfo(errorMessage);
+  private buildErrorResponse(key: string, keyType: string, errorMessage: string): KeyResolutionResponseDto {
+    const errorCodeMatch = errorMessage.match(/\(([A-Z]+-\d{4})\)/) || errorMessage.match(/^([A-Z]+-\d+)/);
+    const networkCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
+
+    let networkMessage = errorMessage;
+    if (errorCodeMatch) {
+      const descriptionMatch = errorMessage.match(/DIFE API error: (.+?) \([A-Z]+-\d{4}\)/);
+      if (descriptionMatch) {
+        networkMessage = descriptionMatch[1];
+      } else {
+        networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
+      }
+    }
+
+    const errorInfo: NetworkErrorInfo = {
+      code: networkCode,
+      description: networkMessage,
+      source: 'DIFE'
+    };
 
     const transferMessage = ErrorMessageMapper.mapToMessage(errorInfo);
-    const networkCode = errorInfo?.code;
-    const networkDescription = errorInfo?.description || errorMessage;
     const formattedNetworkMessage = networkCode
-      ? ErrorMessageMapper.formatNetworkErrorMessage(networkDescription, errorInfo?.source || 'DIFE')
-      : networkDescription;
+      ? ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
+      : networkMessage;
 
-    const responseCode = StandardizedResponseCodeMapper.determineResponseCode(networkCode);
-    const httpStatus = StandardizedResponseCodeMapper.mapToHttpStatus(responseCode, networkCode);
+    const responseCode = this.determineResponseCode(networkCode);
 
-    const data: AccountQueryErrorDataDto = {
+    return {
+      key,
+      keyType,
+      responseCode,
+      message: transferMessage,
       networkCode,
       networkMessage: formattedNetworkMessage
     };
-
-    const response = ThResponseBuilder.custom<AccountQueryErrorDataDto>(
-      httpStatus as ThAppStatusCode,
-      transferMessage,
-      data
-    );
-
-    return {
-      response,
-      httpStatus
-    };
   }
 
-  private handleError(
-    error: unknown,
-    correlationId: string
-  ): { response: AccountQueryResponseDto; httpStatus: number } {
+  private determineResponseCode(networkCode?: string): 'ERROR' | 'VALIDATION_FAILED' {
+    if (!networkCode) {
+      return 'ERROR';
+    }
+    const formatValidationErrors = ['DIFE-4000', 'DIFE-5005'];
+    if (formatValidationErrors.includes(networkCode)) {
+      return 'VALIDATION_FAILED';
+    }
+    return 'ERROR';
+  }
+  private handleError(error: unknown, key: string, keyType: string, correlationId: string): KeyResolutionResponseDto {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
     this.logger.error('Key resolution failed with exception', {
@@ -263,6 +233,10 @@ export class AccountQueryUseCase {
       errorType: error instanceof Error ? error.constructor.name : 'Unknown'
     });
 
-    return this.buildErrorResponse(errorMessage);
+    if (error instanceof KeyResolutionException) {
+      return this.buildErrorResponse(key, keyType, error.message);
+    }
+
+    return this.buildErrorResponse(key, keyType, errorMessage);
   }
 }
