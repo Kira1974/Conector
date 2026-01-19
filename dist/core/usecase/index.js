@@ -16,5 +16,5 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./confirmation.usecase"), exports);
 __exportStar(require("./transfer.usecase"), exports);
-__exportStar(require("./key-resolution.usecase"), exports);
+__exportStar(require("./account-query.usecase"), exports);
 //# sourceMappingURL=index.js.map

@@ -26,39 +26,34 @@ let TransferController = TransferController_1 = class TransferController {
         this.logger = this.loggerService.getLogger(TransferController_1.name, themis_1.ThLoggerComponent.CONTROLLER);
     }
     async transfer(request, res) {
-        const eventId = request.transaction.id;
-        const traceId = request.transaction.id;
-        const correlationId = request.transaction.id;
+        const eventId = request.transactionId;
+        const traceId = request.transactionId;
+        const correlationId = request.transactionId;
         this.logger.log('CHARON Request', {
             method: 'POST',
-            transactionId: request.transaction.id,
+            transactionId: request.transactionId,
             eventId,
             traceId,
             correlationId,
-            amount: request.transaction.amount.total,
+            amount: request.transaction.amount.value,
             currency: request.transaction.amount.currency,
             requestBody: JSON.stringify(request, null, 2)
         });
         const responseDto = await this.transferUseCase.executeTransfer(request);
         const httpStatus = http_status_mapper_1.HttpStatusMapper.mapResponseCodeToHttpStatus(responseDto.responseCode);
         const endToEndId = responseDto.additionalData?.END_TO_END;
-        const { responseCode, message, ...rest } = responseDto;
-        const standardResponse = {
-            code: httpStatus,
-            message,
-            data: {
-                state: responseCode,
-                ...rest,
-            }
-        };
+        const finalCorrelationId = endToEndId || responseDto.transactionId;
         this.logger.log('CHARON Response', {
             status: httpStatus,
             transactionId: responseDto.transactionId,
+            eventId,
+            traceId,
+            correlationId: finalCorrelationId,
             endToEndId,
-            state: responseDto.responseCode,
-            responseBody: JSON.stringify(standardResponse, null, 2)
+            responseCode: responseDto.responseCode,
+            responseBody: JSON.stringify(responseDto, null, 2)
         });
-        return res.status(httpStatus).json(standardResponse);
+        return res.status(httpStatus).json(responseDto);
     }
 };
 exports.TransferController = TransferController;
@@ -76,7 +71,6 @@ __decorate([
 ], TransferController.prototype, "transfer", null);
 exports.TransferController = TransferController = TransferController_1 = __decorate([
     (0, common_1.Controller)('transfer'),
-    (0, common_1.UseInterceptors)(themis_1.ThHttpRequestTracingInterceptor, themis_1.ThHttpResponseTracingInterceptor),
     __metadata("design:paramtypes", [usecase_1.TransferUseCase,
         themis_1.ThLoggerService])
 ], TransferController);

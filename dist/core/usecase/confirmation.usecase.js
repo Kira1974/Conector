@@ -31,7 +31,13 @@ let ConfirmationUseCase = ConfirmationUseCase_1 = class ConfirmationUseCase {
         const executionId = notification.payload.payload.execution_id;
         const settlementStatus = notification.payload.payload.status;
         const transactionId = this.pendingTransferService.getTransactionIdByEndToEndId(endToEndId) || endToEndId;
+        const eventId = transactionId;
+        const traceId = transactionId;
+        const correlationId = endToEndId;
         this.logger.log('NETWORK_REQUEST WEBHOOK', {
+            eventId,
+            traceId,
+            correlationId,
             transactionId,
             endToEndId,
             notificationId: notification.id,
@@ -46,6 +52,9 @@ let ConfirmationUseCase = ConfirmationUseCase_1 = class ConfirmationUseCase {
         let confirmationResponse;
         if (!finalState) {
             this.logger.warn('Unknown settlement status received', {
+                eventId,
+                traceId,
+                correlationId,
                 transactionId,
                 endToEndId,
                 settlementStatus,
@@ -64,6 +73,9 @@ let ConfirmationUseCase = ConfirmationUseCase_1 = class ConfirmationUseCase {
         const resolved = this.pendingTransferService.resolveConfirmation(endToEndId, confirmationResponse, 'webhook');
         if (!resolved) {
             this.logger.warn('Confirmation for unknown or expired transfer', {
+                eventId,
+                traceId,
+                correlationId,
                 transactionId,
                 endToEndId,
                 finalState,
@@ -73,6 +85,9 @@ let ConfirmationUseCase = ConfirmationUseCase_1 = class ConfirmationUseCase {
             return this.buildNotFoundResponse(endToEndId, executionId);
         }
         this.logger.log('Transfer confirmation processed successfully', {
+            eventId,
+            traceId,
+            correlationId,
             transactionId,
             endToEndId,
             executionId,
@@ -123,7 +138,7 @@ let ConfirmationUseCase = ConfirmationUseCase_1 = class ConfirmationUseCase {
                 source: 'MOL'
             };
             mappedMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
-            const responseCode = (0, transfer_validation_util_1.determineResponseCodeFromMessage)(mappedMessage, true);
+            const responseCode = (0, transfer_validation_util_1.determineResponseCodeFromMessage)(mappedMessage);
             return {
                 transactionId: endToEndId,
                 responseCode,

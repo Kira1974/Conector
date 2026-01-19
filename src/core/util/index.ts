@@ -5,7 +5,7 @@ export * from './error-message.mapper';
 export * from './key-format-validator.util';
 export * from './error-constants.util';
 
-// Export other transfer validation utilities
+// Other transfer validation utilities
 export { validateKeyFormatBeforeResolution } from './key-format-validation.util';
 export {
   buildDifeErrorResponseIfAny,
@@ -18,7 +18,8 @@ export {
   buildAdditionalDataFromKeyResolution,
   obfuscateWord,
   obfuscateName,
-  maskAccountNumber
+  maskAccountNumber,
+  parsePayeeName
 } from './data-transformation.util';
 
 // Mappers

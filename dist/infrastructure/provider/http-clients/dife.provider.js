@@ -48,6 +48,9 @@ let DifeProvider = DifeProvider_1 = class DifeProvider {
                     C120: c120Timestamp
                 }
             };
+            const difeEventId = request.transactionId || request.correlationId;
+            const difeTraceId = request.transactionId || request.correlationId;
+            const difeCorrelationId = request.correlationId;
             let token = await this.auth.getToken();
             let headers = {
                 'Content-Type': 'application/json',
@@ -57,6 +60,9 @@ let DifeProvider = DifeProvider_1 = class DifeProvider {
                 url,
                 method: 'POST',
                 requestBody: JSON.stringify(requestBody, null, 2),
+                eventId: difeEventId,
+                traceId: difeTraceId,
+                correlationId: difeCorrelationId,
                 transactionId: request.transactionId,
                 headers,
                 enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
@@ -68,10 +74,16 @@ let DifeProvider = DifeProvider_1 = class DifeProvider {
                 timeout
             });
             this.logNetworkResponse(response, {
+                eventId: difeEventId,
+                traceId: difeTraceId,
+                correlationId: difeCorrelationId,
                 transactionId: request.transactionId
             });
             if (response.status === 401 || response.status === 403) {
                 this.logger.warn('DIFE request failed with authentication error, clearing token cache and retrying', {
+                    eventId: difeEventId,
+                    traceId: difeTraceId,
+                    correlationId: difeCorrelationId,
                     transactionId: request.transactionId,
                     status: response.status
                 });
@@ -86,6 +98,9 @@ let DifeProvider = DifeProvider_1 = class DifeProvider {
                     timeout
                 });
                 this.logNetworkResponse(response, {
+                    eventId: difeEventId,
+                    traceId: difeTraceId,
+                    correlationId: difeCorrelationId,
                     transactionId: request.transactionId,
                     retry: true
                 });
@@ -129,6 +144,9 @@ let DifeProvider = DifeProvider_1 = class DifeProvider {
             responseLog.externalTransactionId = response.data.execution_id;
         }
         this.logger.log('NETWORK_RESPONSE DIFE', responseLog);
+    }
+    getDefaultKeyType() {
+        return 'O';
     }
 };
 exports.DifeProvider = DifeProvider;

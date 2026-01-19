@@ -28,10 +28,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 function isMountebankEnabled() {
     try {
-        const env = process.env.ENV;
-        if (!env) {
-            throw new Error('Environment variable ENV is required but not set');
-        }
+        const env = process.env.NODE_ENV || 'dev';
         const configPath = path.join(process.cwd(), 'deployment', env, 'app.json');
         if (!fs.existsSync(configPath)) {
             return false;

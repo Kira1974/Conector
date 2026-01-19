@@ -33,7 +33,7 @@ let HttpClientService = HttpClientService_1 = class HttpClientService {
         const agent = new https_1.default.Agent({ ...opts, keepAlive: true });
         this.client = axios_1.default.create({
             httpsAgent: agent,
-            validateStatus: () => true
+            validateStatus: (status) => status < 500
         });
         this.setupInterceptors();
     }

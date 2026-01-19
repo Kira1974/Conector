@@ -8,45 +8,48 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var KeyResolutionUseCase_1;
+var AccountQueryUseCase_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.KeyResolutionUseCase = void 0;
+exports.AccountQueryUseCase = void 0;
 const common_1 = require("@nestjs/common");
 const themis_1 = require("themis");
 const provider_1 = require("../provider");
 const util_1 = require("../util");
-const custom_exceptions_1 = require("../exception/custom.exceptions");
+const network_error_extractor_util_1 = require("../util/network-error-extractor.util");
 const error_message_mapper_1 = require("../util/error-message.mapper");
 const constant_1 = require("../constant");
-let KeyResolutionUseCase = KeyResolutionUseCase_1 = class KeyResolutionUseCase {
+const standardized_response_code_mapper_1 = require("../../infrastructure/entrypoint/rest/mappers/standardized-response-code.mapper");
+let AccountQueryUseCase = AccountQueryUseCase_1 = class AccountQueryUseCase {
     constructor(difeProvider, loggerService) {
         this.difeProvider = difeProvider;
         this.loggerService = loggerService;
-        this.logger = this.loggerService.getLogger(KeyResolutionUseCase_1.name, themis_1.ThLoggerComponent.APPLICATION);
+        this.logger = this.loggerService.getLogger(AccountQueryUseCase_1.name, themis_1.ThLoggerComponent.APPLICATION);
     }
-    async execute(key) {
-        const keyType = (0, util_1.calculateKeyType)(key);
+    async execute(keyValue) {
+        const keyType = (0, util_1.calculateKeyType)(keyValue);
         const correlationId = (0, util_1.generateCorrelationId)();
         try {
             const request = {
                 correlationId,
-                key,
-                keyType
+                key: keyValue,
+                keyType: keyType
             };
             const difeResponse = await this.difeProvider.resolveKey(request);
             const keyResolution = this.mapDifeResponseToDomain(difeResponse, correlationId);
-            const responseDto = this.processKeyResolution(keyResolution, difeResponse, key, keyType, correlationId);
+            const { response, httpStatus } = this.processKeyResolution(keyResolution, keyValue, keyType, correlationId);
             return {
-                response: responseDto,
+                response,
                 correlationId,
-                difeExecutionId: difeResponse.execution_id
+                difeExecutionId: difeResponse.execution_id,
+                httpStatus
             };
         }
         catch (error) {
-            const errorResponse = this.handleError(error, key, keyType, correlationId);
+            const { response, httpStatus } = this.handleError(error, correlationId);
             return {
-                response: errorResponse,
-                correlationId
+                response,
+                correlationId,
+                httpStatus
             };
         }
     }
@@ -99,7 +102,7 @@ let KeyResolutionUseCase = KeyResolutionUseCase_1 = class KeyResolutionUseCase {
             }
         };
     }
-    processKeyResolution(keyResolution, difeResponse, key, keyType, correlationId) {
+    processKeyResolution(keyResolution, keyValue, keyType, correlationId) {
         if (keyResolution.errors && keyResolution.errors.length > 0) {
             const errorMessage = keyResolution.errors.join(', ');
             this.logger.warn('DIFE returned business validation errors', {
@@ -108,102 +111,102 @@ let KeyResolutionUseCase = KeyResolutionUseCase_1 = class KeyResolutionUseCase {
                 errorCount: keyResolution.errors.length,
                 errorCodes: keyResolution.errors
             });
-            return this.buildErrorResponse(key, keyType, errorMessage);
+            return this.buildErrorResponse(errorMessage);
         }
         if (!keyResolution.resolvedKey) {
             this.logger.error('Key resolution failed - incomplete response from DIFE', {
                 correlationId,
                 difeCorrelationId: keyResolution.correlationId || correlationId
             });
-            return this.buildErrorResponse(key, keyType, 'Key resolution failed');
+            return this.buildErrorResponse('Key resolution failed');
         }
         this.logger.log('Key resolved successfully', {
             correlationId,
             difeCorrelationId: keyResolution.correlationId || correlationId,
             difeExecutionId: keyResolution.executionId
         });
-        return this.buildSuccessResponse(key, keyType, keyResolution, difeResponse);
+        return this.buildSuccessResponse(keyValue, keyType, keyResolution);
     }
-    buildSuccessResponse(key, keyType, keyResolution, difeResponse) {
+    buildSuccessResponse(keyValue, keyType, keyResolution) {
         const resolvedKey = keyResolution.resolvedKey;
         const person = resolvedKey.person;
         const paymentMethod = resolvedKey.paymentMethod;
-        const additionalData = (0, util_1.buildAdditionalDataFromKeyResolution)(difeResponse);
-        const personName = additionalData.NAME || '';
-        const accountNumber = additionalData.ACCOUNT_NUMBER || '';
-        return {
-            documentNumber: person.identificationNumber,
-            documentType: person.identificationType,
-            personName,
+        const nameParts = [];
+        if (person.firstName)
+            nameParts.push(person.firstName);
+        if (person.secondName)
+            nameParts.push(person.secondName);
+        if (person.lastName)
+            nameParts.push(person.lastName);
+        if (person.secondLastName)
+            nameParts.push(person.secondLastName);
+        const fullName = nameParts.length > 0 ? nameParts.join(' ') : person.legalCompanyName || 'Unknown';
+        const accountDetail = {
+            KEY_VALUE: keyValue,
+            BREB_DIFE_CORRELATION_ID: keyResolution.correlationId || '',
+            BREB_DIFE_TRACE_ID: keyResolution.traceId || '',
+            BREB_DIFE_EXECUTION_ID: keyResolution.executionId,
+            BREB_KEY_TYPE: keyType,
+            BREB_PARTICIPANT_NIT: resolvedKey.participant.nit,
+            BREB_PARTICIPANT_SPBVI: resolvedKey.participant.spbvi
+        };
+        const accountInfo = {
+            type: paymentMethod.type,
+            number: paymentMethod.number,
+            detail: accountDetail
+        };
+        const userData = {
+            name: fullName,
             personType: person.personType,
-            financialEntityNit: resolvedKey.participant.nit,
-            accountType: paymentMethod.type,
-            accountNumber,
-            key,
-            keyType,
-            responseCode: 'SUCCESS',
-            message: constant_1.TransferMessage.KEY_RESOLUTION_SUCCESS
+            documentType: person.identificationType,
+            documentNumber: person.identificationNumber,
+            account: accountInfo
+        };
+        const data = {
+            externalTransactionId: keyResolution.executionId || '',
+            state: 'SUCCESFUL',
+            userData
+        };
+        const response = themis_1.ThResponseBuilder.created(data, constant_1.TransferMessage.KEY_RESOLUTION_SUCCESS);
+        return {
+            response,
+            httpStatus: themis_1.ThAppStatusCode.CREATED
         };
     }
-    buildErrorResponse(key, keyType, errorMessage) {
-        const errorCodeMatch = errorMessage.match(/\(([A-Z]+-\d{4})\)/) || errorMessage.match(/^([A-Z]+-\d+)/);
-        const networkCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
-        let networkMessage = errorMessage;
-        if (errorCodeMatch) {
-            const descriptionMatch = errorMessage.match(/DIFE API error: (.+?) \([A-Z]+-\d{4}\)/);
-            if (descriptionMatch) {
-                networkMessage = descriptionMatch[1];
-            }
-            else {
-                networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
-            }
-        }
-        const errorInfo = {
-            code: networkCode,
-            description: networkMessage,
-            source: 'DIFE'
-        };
+    buildErrorResponse(errorMessage) {
+        const errorInfo = (0, network_error_extractor_util_1.extractNetworkErrorInfo)(errorMessage);
         const transferMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
+        const networkCode = errorInfo?.code;
+        const networkDescription = errorInfo?.description || errorMessage;
         const formattedNetworkMessage = networkCode
-            ? error_message_mapper_1.ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
-            : networkMessage;
-        const responseCode = this.determineResponseCode(networkCode);
-        return {
-            key,
-            keyType,
-            responseCode,
-            message: transferMessage,
+            ? error_message_mapper_1.ErrorMessageMapper.formatNetworkErrorMessage(networkDescription, errorInfo?.source || 'DIFE')
+            : networkDescription;
+        const responseCode = standardized_response_code_mapper_1.StandardizedResponseCodeMapper.determineResponseCode(networkCode);
+        const httpStatus = standardized_response_code_mapper_1.StandardizedResponseCodeMapper.mapToHttpStatus(responseCode, networkCode);
+        const data = {
             networkCode,
             networkMessage: formattedNetworkMessage
         };
+        const response = themis_1.ThResponseBuilder.custom(httpStatus, transferMessage, data);
+        return {
+            response,
+            httpStatus
+        };
     }
-    determineResponseCode(networkCode) {
-        if (!networkCode) {
-            return 'ERROR';
-        }
-        const formatValidationErrors = ['DIFE-4000', 'DIFE-5005'];
-        if (formatValidationErrors.includes(networkCode)) {
-            return 'VALIDATION_FAILED';
-        }
-        return 'ERROR';
-    }
-    handleError(error, key, keyType, correlationId) {
+    handleError(error, correlationId) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         this.logger.error('Key resolution failed with exception', {
             correlationId,
             error: errorMessage,
             errorType: error instanceof Error ? error.constructor.name : 'Unknown'
         });
-        if (error instanceof custom_exceptions_1.KeyResolutionException) {
-            return this.buildErrorResponse(key, keyType, error.message);
-        }
-        return this.buildErrorResponse(key, keyType, errorMessage);
+        return this.buildErrorResponse(errorMessage);
     }
 };
-exports.KeyResolutionUseCase = KeyResolutionUseCase;
-exports.KeyResolutionUseCase = KeyResolutionUseCase = KeyResolutionUseCase_1 = __decorate([
+exports.AccountQueryUseCase = AccountQueryUseCase;
+exports.AccountQueryUseCase = AccountQueryUseCase = AccountQueryUseCase_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [provider_1.IDifeProvider,
         themis_1.ThLoggerService])
-], KeyResolutionUseCase);
-//# sourceMappingURL=key-resolution.usecase.js.map
+], AccountQueryUseCase);
+//# sourceMappingURL=account-query.usecase.js.map

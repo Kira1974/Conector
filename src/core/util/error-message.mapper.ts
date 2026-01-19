@@ -73,6 +73,8 @@ export class ErrorMessageMapper {
     '400': TransferMessage.VALIDATION_FAILED,
     '500': TransferMessage.PROVIDER_ERROR,
     'MOL-5000': TransferMessage.PROVIDER_ERROR,
+    'MOL-5001': TransferMessage.PAYMENT_REJECTED,
+    'MOL-5003': TransferMessage.PAYMENT_REJECTED,
     'MOL-5005': TransferMessage.VALIDATION_FAILED,
     'MOL-4009': TransferMessage.VALIDATION_FAILED,
     'MOL-4008': TransferMessage.VALIDATION_FAILED,

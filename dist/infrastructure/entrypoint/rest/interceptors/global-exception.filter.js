@@ -53,20 +53,15 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
         }
         const errorDetails = this.getErrorDetails(exception, correlationId);
         this.logError(exception, errorDetails, request, correlationId);
-        const transactionId = this.extractTransactionId(request);
-        const state = this.mapToResponseCode(errorDetails.errorCode);
-        const responseData = {
-            state
-        };
-        if (transactionId) {
-            responseData.transactionId = transactionId;
-        }
-        const standardResponse = {
-            code: errorDetails.httpStatus,
+        const errorResponse = {
+            responseCode: this.mapToResponseCode(errorDetails.errorCode),
             message: errorDetails.message,
-            data: responseData
+            timestamp: new Date().toISOString()
         };
-        response.status(errorDetails.httpStatus).json(standardResponse);
+        if (errorDetails.correlationId) {
+            errorResponse.correlationId = errorDetails.correlationId;
+        }
+        response.status(errorDetails.httpStatus).json(errorResponse);
     }
     getErrorDetails(exception, correlationId) {
         if (exception instanceof common_1.HttpException) {
@@ -238,10 +233,6 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
             request.body?.correlationId ||
             undefined);
     }
-    extractTransactionId(request) {
-        const body = request.body;
-        return body?.transaction?.id;
-    }
     isKeyResolutionError(exception) {
         if (!(exception instanceof common_1.HttpException)) {
             return false;
@@ -251,28 +242,13 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
     }
     handleKeyResolutionError(exception, response, request, correlationId) {
         const exceptionResponse = exception.getResponse();
-        const httpStatus = exception.getStatus();
-        const message = String(exceptionResponse.message || 'Key resolution error');
         this.logError(exception, {
-            message,
+            message: String(exceptionResponse.message || 'Key resolution error'),
             errorCode: 'KEY_RESOLUTION_ERROR',
-            httpStatus,
+            httpStatus: exception.getStatus(),
             correlationId
         }, request, correlationId);
-        const state = exceptionResponse.responseCode || 'ERROR';
-        const responseData = {
-            state,
-            ...(exceptionResponse.networkCode && { networkCode: exceptionResponse.networkCode }),
-            ...(exceptionResponse.networkMessage && { networkMessage: exceptionResponse.networkMessage }),
-            ...(exceptionResponse.key && { key: exceptionResponse.key }),
-            ...(exceptionResponse.keyType && { keyType: exceptionResponse.keyType })
-        };
-        const standardResponse = {
-            code: httpStatus,
-            message,
-            data: responseData
-        };
-        response.status(httpStatus).json(standardResponse);
+        response.status(exception.getStatus()).json(exceptionResponse);
     }
     isTimeoutError(exception) {
         if (!(exception instanceof Error))

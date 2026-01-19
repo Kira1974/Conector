@@ -9,16 +9,29 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.KeyResolutionParamsDto = void 0;
+exports.AccountQueryRequestDto = exports.AccountDto = void 0;
 const class_validator_1 = require("class-validator");
-class KeyResolutionParamsDto {
+const class_transformer_1 = require("class-transformer");
+class AccountDto {
 }
-exports.KeyResolutionParamsDto = KeyResolutionParamsDto;
+exports.AccountDto = AccountDto;
 __decorate([
-    (0, class_validator_1.IsNotEmpty)({ message: 'Key value cannot be empty' }),
-    (0, class_validator_1.IsString)({ message: 'Key must be a string' }),
-    (0, class_validator_1.MinLength)(1, { message: 'Key must be at least 1 character' }),
-    (0, class_validator_1.MaxLength)(92, { message: 'Key must not exceed 92 characters (max email length)' }),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
-], KeyResolutionParamsDto.prototype, "key", void 0);
-//# sourceMappingURL=key-resolution-params.dto.js.map
+], AccountDto.prototype, "type", void 0);
+__decorate([
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], AccountDto.prototype, "value", void 0);
+class AccountQueryRequestDto {
+}
+exports.AccountQueryRequestDto = AccountQueryRequestDto;
+__decorate([
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => AccountDto),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", AccountDto)
+], AccountQueryRequestDto.prototype, "account", void 0);
+//# sourceMappingURL=account-query-request.dto.js.map

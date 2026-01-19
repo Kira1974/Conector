@@ -96,3 +96,42 @@ export function obfuscateKey(value: string, charsToMask: number = 3): string {
 
   return `${masked}${visible}`;
 }
+
+export interface ParsedPayeeName {
+  firstName?: string;
+  secondName?: string;
+  lastName?: string;
+  secondLastName?: string;
+  legalName?: string;
+}
+
+export function parsePayeeName(payeeName?: string): ParsedPayeeName {
+  if (!payeeName || payeeName.trim() === '') {
+    return {};
+  }
+
+  const parts = payeeName.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return { legalName: parts[0] };
+  }
+
+  if (parts.length === 2) {
+    return { firstName: parts[0], lastName: parts[1] };
+  }
+
+  if (parts.length === 3) {
+    return { firstName: parts[0], lastName: parts[1], secondLastName: parts[2] };
+  }
+
+  if (parts.length >= 4) {
+    return {
+      firstName: parts[0],
+      secondName: parts[1],
+      lastName: parts[2],
+      secondLastName: parts[3]
+    };
+  }
+
+  return {};
+}

@@ -35,16 +35,9 @@ export class TransferController {
     tags: ['transfer', 'payment']
   })
   async transfer(@Body() request: TransferRequestDto, @Res() res: Response): Promise<Response> {
-    const eventId = request.transaction.id;
-    const traceId = request.transaction.id;
-    const correlationId = request.transaction.id;
-
     this.logger.log('CHARON Request', {
       method: 'POST',
       transactionId: request.transaction.id,
-      eventId,
-      traceId,
-      correlationId,
       amount: request.transaction.amount.total,
       currency: request.transaction.amount.currency,
       requestBody: JSON.stringify(request, null, 2)
@@ -62,7 +55,7 @@ export class TransferController {
       message,
       data: {
         state: responseCode,
-        ...rest,
+        ...rest
       }
     };
 

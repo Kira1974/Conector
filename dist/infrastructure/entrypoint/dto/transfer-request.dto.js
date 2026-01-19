@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TransferRequestDto = exports.TransactionDto = exports.AdditionalDataDto = exports.PayeeDto = exports.PayeeAccountDto = exports.PayeeAccountDetailDto = exports.PayerDto = exports.PayerAccountDto = exports.AmountDto = void 0;
+exports.TransferRequestDto = exports.AdditionalDataDto = exports.TransactionPartiesDto = exports.PayeeDto = exports.PayeeAccountInfoDto = exports.TransactionDto = exports.AmountDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 class AmountDto {
@@ -20,96 +20,16 @@ __decorate([
     (0, class_validator_1.Min)(0.01),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", Number)
-], AmountDto.prototype, "total", void 0);
+], AmountDto.prototype, "value", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsIn)(['COP', 'USD', 'EUR']),
     __metadata("design:type", String)
 ], AmountDto.prototype, "currency", void 0);
-class PayerAccountDto {
-}
-exports.PayerAccountDto = PayerAccountDto;
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], PayerAccountDto.prototype, "type", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], PayerAccountDto.prototype, "number", void 0);
-class PayerDto {
-}
-exports.PayerDto = PayerDto;
-__decorate([
-    (0, class_validator_1.ValidateNested)(),
-    (0, class_transformer_1.Type)(() => PayerAccountDto),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", PayerAccountDto)
-], PayerDto.prototype, "account", void 0);
-class PayeeAccountDetailDto {
-}
-exports.PayeeAccountDetailDto = PayeeAccountDetailDto;
-class PayeeAccountDto {
-}
-exports.PayeeAccountDto = PayeeAccountDto;
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], PayeeAccountDto.prototype, "type", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], PayeeAccountDto.prototype, "number", void 0);
-__decorate([
-    (0, class_validator_1.IsObject)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", PayeeAccountDetailDto)
-], PayeeAccountDto.prototype, "detail", void 0);
-class PayeeDto {
-}
-exports.PayeeDto = PayeeDto;
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], PayeeDto.prototype, "name", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], PayeeDto.prototype, "personType", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], PayeeDto.prototype, "documentType", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], PayeeDto.prototype, "documentNumber", void 0);
-__decorate([
-    (0, class_validator_1.ValidateNested)(),
-    (0, class_transformer_1.Type)(() => PayeeAccountDto),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", PayeeAccountDto)
-], PayeeDto.prototype, "account", void 0);
-class AdditionalDataDto {
-}
-exports.AdditionalDataDto = AdditionalDataDto;
 class TransactionDto {
 }
 exports.TransactionDto = TransactionDto;
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], TransactionDto.prototype, "id", void 0);
 __decorate([
     (0, class_validator_1.ValidateNested)(),
     (0, class_transformer_1.Type)(() => AmountDto),
@@ -121,30 +41,64 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], TransactionDto.prototype, "description", void 0);
+class PayeeAccountInfoDto {
+}
+exports.PayeeAccountInfoDto = PayeeAccountInfoDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], PayeeAccountInfoDto.prototype, "value", void 0);
+class PayeeDto {
+}
+exports.PayeeDto = PayeeDto;
 __decorate([
     (0, class_validator_1.ValidateNested)(),
-    (0, class_transformer_1.Type)(() => PayerDto),
+    (0, class_transformer_1.Type)(() => PayeeAccountInfoDto),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", PayeeAccountInfoDto)
+], PayeeDto.prototype, "accountInfo", void 0);
+__decorate([
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", PayerDto)
-], TransactionDto.prototype, "payer", void 0);
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], PayeeDto.prototype, "documentNumber", void 0);
+class TransactionPartiesDto {
+}
+exports.TransactionPartiesDto = TransactionPartiesDto;
 __decorate([
     (0, class_validator_1.ValidateNested)(),
     (0, class_transformer_1.Type)(() => PayeeDto),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", PayeeDto)
-], TransactionDto.prototype, "payee", void 0);
-__decorate([
-    (0, class_validator_1.IsObject)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", AdditionalDataDto)
-], TransactionDto.prototype, "additionalData", void 0);
+], TransactionPartiesDto.prototype, "payee", void 0);
+class AdditionalDataDto {
+}
+exports.AdditionalDataDto = AdditionalDataDto;
 class TransferRequestDto {
 }
 exports.TransferRequestDto = TransferRequestDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], TransferRequestDto.prototype, "transactionId", void 0);
 __decorate([
     (0, class_validator_1.ValidateNested)(),
     (0, class_transformer_1.Type)(() => TransactionDto),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", TransactionDto)
 ], TransferRequestDto.prototype, "transaction", void 0);
+__decorate([
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => TransactionPartiesDto),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", TransactionPartiesDto)
+], TransferRequestDto.prototype, "transactionParties", void 0);
+__decorate([
+    (0, class_validator_1.IsObject)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", AdditionalDataDto)
+], TransferRequestDto.prototype, "additionalData", void 0);
 //# sourceMappingURL=transfer-request.dto.js.map

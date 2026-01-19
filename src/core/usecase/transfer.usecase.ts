@@ -19,7 +19,8 @@ import {
   buildDifeErrorResponseIfAny,
   extractNetworkErrorInfo,
   buildAdditionalDataFromKeyResolution,
-  determineResponseCodeFromMessage
+  determineResponseCodeFromMessage,
+  parsePayeeName
 } from '../util';
 import { ErrorMessageMapper } from '../util/error-message.mapper';
 import { UNKNOWN_ERROR_MESSAGE, DEFAULT_TIMEOUT_MESSAGE } from '../util/error-constants.util';
@@ -63,16 +64,13 @@ export class TransferUseCase {
 
       if (this.isKeyResolutionComplete(keyResolutionFromRequest)) {
         this.logger.log('Using keyResolution from request additionalData, skipping DIFE call', {
-          transactionId: request.transaction.id,
-          correlationId: request.transaction.id
+          transactionId: request.transaction.id
         });
         keyResolution = keyResolutionFromRequest;
         keyResolutionSource = 'FROM_REQUEST';
       } else {
         this.logger.log('keyResolution not provided or incomplete in additionalData, calling DIFE', {
-          transactionId: request.transaction.id,
-          correlationId: request.transaction.id,
-          hasPartialData: !!keyResolutionFromRequest
+          transactionId: request.transaction.id
         });
         const keyResolutionRequest = this.buildKeyResolutionRequest(request);
         keyResolution = await this.difeProvider.resolveKey(keyResolutionRequest);
@@ -135,7 +133,7 @@ export class TransferUseCase {
 
     const additionalData = request.transaction.additionalData || {};
     const difeExecutionId = additionalData['BREB_DIFE_END_TO_END_ID'] as string | undefined;
-    const names = this.parsePayeeName(payeeName);
+    const names = parsePayeeName(payeeName);
 
     const correlationId = generateCorrelationId();
 
@@ -175,43 +173,6 @@ export class TransferUseCase {
         }
       }
     };
-  }
-
-  private parsePayeeName(payeeName?: string): {
-    firstName?: string;
-    secondName?: string;
-    lastName?: string;
-    secondLastName?: string;
-    legalName?: string;
-  } {
-    if (!payeeName || payeeName.trim() === '') {
-      return {};
-    }
-
-    const parts = payeeName.trim().split(/\s+/);
-
-    if (parts.length === 1) {
-      return { legalName: parts[0] };
-    }
-
-    if (parts.length === 2) {
-      return { firstName: parts[0], lastName: parts[1] };
-    }
-
-    if (parts.length === 3) {
-      return { firstName: parts[0], lastName: parts[1], secondLastName: parts[2] };
-    }
-
-    if (parts.length >= 4) {
-      return {
-        firstName: parts[0],
-        secondName: parts[1],
-        lastName: parts[2],
-        secondLastName: parts[3]
-      };
-    }
-
-    return {};
   }
 
   private isKeyResolutionComplete(keyResolution: DifeKeyResponseDto | null): keyResolution is DifeKeyResponseDto {
@@ -257,7 +218,12 @@ export class TransferUseCase {
   ):
     | { endToEndId: string; errorResponse?: undefined }
     | { endToEndId?: undefined; errorResponse: TransferResponseDto } {
-    if (paymentResponse.responseCode === TransferResponseCode.ERROR) {
+    if (
+      paymentResponse.responseCode === TransferResponseCode.ERROR ||
+      paymentResponse.responseCode === TransferResponseCode.VALIDATION_FAILED ||
+      paymentResponse.responseCode === TransferResponseCode.REJECTED_BY_PROVIDER ||
+      paymentResponse.responseCode === TransferResponseCode.PROVIDER_ERROR
+    ) {
       return { errorResponse: paymentResponse };
     }
 
@@ -265,7 +231,7 @@ export class TransferUseCase {
     const endToEndId = additionalData?.[AdditionalDataKey.END_TO_END];
 
     if (!endToEndId || endToEndId.trim() === '') {
-      this.logger.error('Missing END_TO_END in payment response', {
+      this.logger.error('Missing END_TO_END_ID in payment response', {
         ...this.buildLogContext(request.transaction.id)
       });
       return {
@@ -287,9 +253,6 @@ export class TransferUseCase {
     startedAt: number
   ): Promise<TransferResponseDto> {
     this.logger.log('Waiting for transfer confirmation', {
-      eventId: request.transaction.id,
-      traceId: request.transaction.id,
-      correlationId: endToEndId,
       transactionId: request.transaction.id,
       endToEndId,
       timeoutSeconds: TransferUseCase.TRANSFER_TIMEOUT_SECONDS
@@ -317,9 +280,6 @@ export class TransferUseCase {
       const timeoutMessage = timeoutError instanceof Error ? timeoutError.message : DEFAULT_TIMEOUT_MESSAGE;
 
       this.logger.warn('Transfer confirmation timeout (controlled)', {
-        eventId: request.transaction.id,
-        traceId: request.transaction.id,
-        correlationId: endToEndId,
         transactionId: request.transaction.id,
         endToEndId,
         error: timeoutMessage
@@ -340,13 +300,14 @@ export class TransferUseCase {
   private handleTransferError(error: unknown, transactionId: string): TransferResponseDto {
     const errorMessage = error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE;
 
-    this.logger.error('Transfer execution failed', error, {
-      correlationId: transactionId,
-      transactionId
-    });
-
     if (error instanceof KeyResolutionException) {
       const networkErrorInfo = extractNetworkErrorInfo(error.message);
+
+      this.logger.warn('Key resolution error (controlled)', {
+        transactionId,
+        errorCode: networkErrorInfo?.code,
+        error: error.message
+      });
 
       return {
         transactionId,
@@ -366,6 +327,21 @@ export class TransferUseCase {
       : TransferMessage.UNKNOWN_ERROR;
     const fromProvider = !!errorInfo;
     const responseCode = determineResponseCodeFromMessage(mappedMessage, fromProvider, networkErrorInfo);
+
+    const isControlledError = networkErrorInfo && ErrorMessageMapper.isControlledProviderError(networkErrorInfo);
+
+    if (isControlledError) {
+      this.logger.warn('Provider error (controlled)', {
+        transactionId,
+        source: errorInfo?.source,
+        errorCode: errorInfo?.code,
+        error: errorMessage
+      });
+    } else {
+      this.logger.error('Transfer execution failed', error, {
+        transactionId
+      });
+    }
 
     return {
       transactionId,

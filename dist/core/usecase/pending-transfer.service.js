@@ -33,7 +33,7 @@ let PendingTransferService = PendingTransferService_1 = class PendingTransferSer
         this.POLLING_INTERVAL_MS = this.transferConfig.getPollingInterval();
         this.MOL_QUERY_TIMEOUT_MS = this.externalServicesConfig.getMolQueryTimeout();
         this.ENABLE_MOL_POLLING = this.transferConfig.isPollingEnabled();
-        if (this.transferConfig.isCleanupIntervalEnabled()) {
+        if (process.env.NODE_ENV !== 'test') {
             this.startCleanupInterval();
         }
     }
@@ -205,6 +205,9 @@ let PendingTransferService = PendingTransferService_1 = class PendingTransferSer
         const registrationDelayMs = pending.createdAt - pending.startedAt;
         const waitingDurationMs = resolvedAt - pending.createdAt;
         const logData = {
+            eventId: pending.transactionId,
+            traceId: pending.transactionId,
+            correlationId: endToEndId,
             transactionId: pending.transactionId,
             endToEndId,
             finalState,

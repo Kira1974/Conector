@@ -39,24 +39,6 @@ export function buildDifeErrorResponseIfAny(
   return null;
 }
 
-export function validateKeyFormatBeforeResolution(request: TransferRequestDto): TransferResponseDto | null {
-  const keyValue = request.transaction.payee.account.detail?.['KEY_VALUE'] as string | undefined;
-
-  if (!keyValue || keyValue.trim() === '') {
-    return buildValidationErrorResponse(request.transaction.id, TransferMessage.INVALID_KEY_FORMAT);
-  }
-
-  const isNumericKey = /^@?\d+$/.test(keyValue);
-  const isAlphaKey = /^[A-Z]+$/.test(keyValue);
-  const isEmailKey = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(keyValue);
-
-  if (!isNumericKey && !isAlphaKey && !isEmailKey) {
-    return buildValidationErrorResponse(request.transaction.id, TransferMessage.INVALID_KEY_FORMAT);
-  }
-
-  return null;
-}
-
 export function determineResponseCodeFromMessage(
   message: TransferMessage,
   fromProvider: boolean = false,

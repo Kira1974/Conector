@@ -152,7 +152,11 @@ export class DifeProvider implements IDifeProvider {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
 
-      if (error instanceof KeyResolutionException || error instanceof ExternalServiceException) {
+      if (
+        error instanceof KeyResolutionException ||
+        error instanceof ExternalServiceException ||
+        (error instanceof Error && error.name === 'UnauthorizedException')
+      ) {
         throw error;
       }
 

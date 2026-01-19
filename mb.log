@@ -1,16 +1,12 @@
-{"level":"info","message":"[mb:2525] mountebank v2.9.3-sec now taking orders - point your browser to http://localhost:2525/ for help","timestamp":"2026-01-17T13:11:02.459Z"}
-{"level":"info","message":"[mb:2525] DELETE /imposters","timestamp":"2026-01-17T13:11:02.540Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-17T13:11:02.545Z"}
-{"level":"info","message":"[http:4545] Open for business...","timestamp":"2026-01-17T13:11:02.547Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-17T13:11:02.549Z"}
-{"level":"info","message":"[http:4546] Open for business...","timestamp":"2026-01-17T13:11:02.550Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-17T13:11:02.552Z"}
-{"level":"info","message":"[http:4547] Open for business...","timestamp":"2026-01-17T13:11:02.552Z"}
-{"level":"info","message":"[http:4545] ::ffff:127.0.0.1:49134 => POST /token?grant_type=client_credentials","timestamp":"2026-01-17T13:11:02.569Z"}
-{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:42198 => POST /v1/key/resolve","timestamp":"2026-01-17T13:11:02.574Z"}
-{"level":"info","message":"[http:4547] ::ffff:127.0.0.1:42538 => POST /v1/payment","timestamp":"2026-01-17T13:11:02.578Z"}
-{"level":"info","message":"[mb:2525] DELETE /imposters","timestamp":"2026-01-17T13:11:02.599Z"}
-{"level":"info","message":"[http:4545] Ciao for now","timestamp":"2026-01-17T13:11:02.600Z"}
-{"level":"info","message":"[http:4546] Ciao for now","timestamp":"2026-01-17T13:11:02.600Z"}
-{"level":"info","message":"[http:4547] Ciao for now","timestamp":"2026-01-17T13:11:02.600Z"}
-{"level":"info","message":"[mb:2525] Adios - see you soon?","timestamp":"2026-01-17T13:11:02.609Z"}
+{"level":"info","message":"[mb:2525] mountebank v2.9.3-sec now taking orders - point your browser to http://localhost:2525/ for help","timestamp":"2026-01-19T14:48:55.218Z"}
+{"level":"info","message":"[mb:2525] GET /imposters","timestamp":"2026-01-19T14:48:55.247Z"}
+{"level":"info","message":"[mb:2525] DELETE /imposters","timestamp":"2026-01-19T14:48:55.296Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-19T14:48:55.306Z"}
+{"level":"info","message":"[http:4545] Open for business...","timestamp":"2026-01-19T14:48:55.315Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-19T14:48:55.326Z"}
+{"level":"info","message":"[http:4546] Open for business...","timestamp":"2026-01-19T14:48:55.342Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-19T14:48:55.353Z"}
+{"level":"info","message":"[http:4547] Open for business...","timestamp":"2026-01-19T14:48:55.361Z"}
+{"level":"info","message":"[http:4545] ::ffff:127.0.0.1:37940 => POST /token?grant_type=client_credentials","timestamp":"2026-01-19T14:49:28.408Z"}
+{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:40628 => POST /v1/key/resolve","timestamp":"2026-01-19T14:49:28.427Z"}
+{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:52454 => POST /v1/key/resolve","timestamp":"2026-01-19T14:49:37.023Z"}
