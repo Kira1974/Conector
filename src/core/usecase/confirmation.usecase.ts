@@ -30,8 +30,14 @@ export class ConfirmationUseCase {
     const executionId = notification.payload.payload.execution_id;
     const settlementStatus = notification.payload.payload.status;
     const transactionId = this.pendingTransferService.getTransactionIdByEndToEndId(endToEndId) || endToEndId;
+    const eventId = transactionId;
+    const traceId = transactionId;
+    const correlationId = endToEndId;
 
     this.logger.log('NETWORK_REQUEST WEBHOOK', {
+      eventId,
+      traceId,
+      correlationId,
       transactionId,
       endToEndId,
       notificationId: notification.id,
@@ -49,6 +55,9 @@ export class ConfirmationUseCase {
 
     if (!finalState) {
       this.logger.warn('Unknown settlement status received', {
+        eventId,
+        traceId,
+        correlationId,
         transactionId,
         endToEndId,
         settlementStatus,
@@ -69,6 +78,9 @@ export class ConfirmationUseCase {
 
     if (!resolved) {
       this.logger.warn('Confirmation for unknown or expired transfer', {
+        eventId,
+        traceId,
+        correlationId,
         transactionId,
         endToEndId,
         finalState,
@@ -80,6 +92,9 @@ export class ConfirmationUseCase {
     }
 
     this.logger.log('Transfer confirmation processed successfully', {
+      eventId,
+      traceId,
+      correlationId,
       transactionId,
       endToEndId,
       executionId,
@@ -143,7 +158,7 @@ export class ConfirmationUseCase {
       };
 
       mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
-      const responseCode = determineResponseCodeFromMessage(mappedMessage, true);
+      const responseCode = determineResponseCodeFromMessage(mappedMessage);
 
       return {
         transactionId: endToEndId,

@@ -16,9 +16,6 @@
     "difePort": 4546,
     "molPort": 4547
   },
-  "transfer": {
-    "enableCleanupInterval": false
-  },
   "molPayer": {
     "name": "Test Payer"
   },

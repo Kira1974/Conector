@@ -8,7 +8,6 @@ import { KeyTypeDife } from '@core/constant';
 import { formatTimestampWithoutZ, obfuscateKey } from '@core/util';
 import { ExternalServicesConfigService } from '@config/external-services-config.service';
 import { LoggingConfigService } from '@config/logging-config.service';
-import { IDifeProvider } from '@core/provider';
 
 import { ResilienceConfigService } from '../resilience-config.service';
 import { buildNetworkRequestLog, buildNetworkResponseLog } from '../util/network-log.util';
@@ -22,7 +21,7 @@ import { AuthService, HttpClientService } from './';
  * Handles communication with key resolution service
  */
 @Injectable()
-export class DifeProvider implements IDifeProvider {
+export class DifeProvider {
   private readonly logger: ThLogger;
   private readonly ENABLE_HTTP_HEADERS_LOG: boolean;
 
@@ -65,6 +64,10 @@ export class DifeProvider implements IDifeProvider {
         }
       };
 
+      const difeEventId = request.transactionId || request.correlationId;
+      const difeTraceId = request.transactionId || request.correlationId;
+      const difeCorrelationId = request.correlationId;
+
       let token = await this.auth.getToken();
       let headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -75,6 +78,9 @@ export class DifeProvider implements IDifeProvider {
         url,
         method: 'POST',
         requestBody: JSON.stringify(requestBody, null, 2),
+        eventId: difeEventId,
+        traceId: difeTraceId,
+        correlationId: difeCorrelationId,
         transactionId: request.transactionId,
         headers,
         enableHttpHeadersLog: this.ENABLE_HTTP_HEADERS_LOG
@@ -89,11 +95,17 @@ export class DifeProvider implements IDifeProvider {
       });
 
       this.logNetworkResponse(response, {
+        eventId: difeEventId,
+        traceId: difeTraceId,
+        correlationId: difeCorrelationId,
         transactionId: request.transactionId
       });
 
       if (response.status === 401 || response.status === 403) {
         this.logger.warn('DIFE request failed with authentication error, clearing token cache and retrying', {
+          eventId: difeEventId,
+          traceId: difeTraceId,
+          correlationId: difeCorrelationId,
           transactionId: request.transactionId,
           status: response.status
         });
@@ -111,6 +123,9 @@ export class DifeProvider implements IDifeProvider {
         });
 
         this.logNetworkResponse(response, {
+          eventId: difeEventId,
+          traceId: difeTraceId,
+          correlationId: difeCorrelationId,
           transactionId: request.transactionId,
           retry: true
         });
@@ -152,11 +167,7 @@ export class DifeProvider implements IDifeProvider {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
 
-      if (
-        error instanceof KeyResolutionException ||
-        error instanceof ExternalServiceException ||
-        (error instanceof Error && error.name === 'UnauthorizedException')
-      ) {
+      if (error instanceof KeyResolutionException || error instanceof ExternalServiceException) {
         throw error;
       }
 
@@ -174,6 +185,9 @@ export class DifeProvider implements IDifeProvider {
   private logNetworkResponse(
     response: AxiosResponse<DifeKeyResponseDto>,
     options: {
+      eventId: string;
+      traceId: string;
+      correlationId: string;
       transactionId?: string;
       retry?: boolean;
     }
@@ -185,5 +199,12 @@ export class DifeProvider implements IDifeProvider {
     }
 
     this.logger.log('NETWORK_RESPONSE DIFE', responseLog);
+  }
+
+  /**
+   * Get default key type - always 'O' (Alphanumeric Identifier)
+   */
+  private getDefaultKeyType(): string {
+    return 'O';
   }
 }

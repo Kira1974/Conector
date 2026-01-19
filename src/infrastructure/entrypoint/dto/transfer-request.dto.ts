@@ -3,11 +3,14 @@ import { Type } from 'class-transformer';
 
 export type CurrencyCode = 'COP' | 'USD' | 'EUR';
 
+/**
+ * Amount details for transfer
+ */
 export class AmountDto {
   @IsNumber()
   @Min(0.01)
   @IsNotEmpty()
-  total: number;
+  value: number;
 
   @IsString()
   @IsNotEmpty()
@@ -15,73 +18,10 @@ export class AmountDto {
   currency: CurrencyCode;
 }
 
-export class PayerAccountDto {
-  @IsString()
-  @IsNotEmpty()
-  type: string;
-
-  @IsString()
-  @IsNotEmpty()
-  number: string;
-}
-
-export class PayerDto {
-  @ValidateNested()
-  @Type(() => PayerAccountDto)
-  @IsNotEmpty()
-  account: PayerAccountDto;
-}
-
-export class PayeeAccountDetailDto {
-  [key: string]: any;
-}
-
-export class PayeeAccountDto {
-  @IsString()
-  @IsOptional()
-  type?: string;
-
-  @IsString()
-  @IsOptional()
-  number?: string;
-
-  @IsObject()
-  @IsOptional()
-  detail?: PayeeAccountDetailDto;
-}
-
-export class PayeeDto {
-  @IsString()
-  @IsOptional()
-  name?: string;
-
-  @IsString()
-  @IsOptional()
-  personType?: string;
-
-  @IsString()
-  @IsOptional()
-  documentType?: string;
-
-  @IsString()
-  @IsOptional()
-  documentNumber?: string;
-
-  @ValidateNested()
-  @Type(() => PayeeAccountDto)
-  @IsNotEmpty()
-  account: PayeeAccountDto;
-}
-
-export class AdditionalDataDto {
-  [key: string]: any;
-}
-
+/**
+ * Transaction details for transfer
+ */
 export class TransactionDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string;
-
   @ValidateNested()
   @Type(() => AmountDto)
   @IsNotEmpty()
@@ -90,25 +30,68 @@ export class TransactionDto {
   @IsString()
   @IsNotEmpty()
   description: string;
+}
 
+/**
+ * Payee account information for transfer
+ */
+export class PayeeAccountInfoDto {
+  @IsString()
+  @IsNotEmpty()
+  value: string;
+}
+
+/**
+ * Payee details for transfer
+ */
+export class PayeeDto {
   @ValidateNested()
-  @Type(() => PayerDto)
+  @Type(() => PayeeAccountInfoDto)
+  @IsNotEmpty()
+  accountInfo: PayeeAccountInfoDto;
   @IsOptional()
-  payer?: PayerDto;
+  @IsString()
+  @IsNotEmpty()
+  documentNumber?: string;
+}
 
+/**
+ * Transaction parties for transfer
+ */
+export class TransactionPartiesDto {
   @ValidateNested()
   @Type(() => PayeeDto)
   @IsNotEmpty()
   payee: PayeeDto;
-
-  @IsObject()
-  @IsOptional()
-  additionalData?: AdditionalDataDto;
 }
 
+/**
+ * Additional data for transfer
+ */
+export class AdditionalDataDto {
+  [key: string]: any;
+}
+
+/**
+ * Transfer Request DTO
+ * Main request for creating a transfer using DIFE + MOL
+ */
 export class TransferRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  transactionId: string;
+
   @ValidateNested()
   @Type(() => TransactionDto)
   @IsNotEmpty()
   transaction: TransactionDto;
+
+  @ValidateNested()
+  @Type(() => TransactionPartiesDto)
+  @IsNotEmpty()
+  transactionParties: TransactionPartiesDto;
+
+  @IsObject()
+  @IsOptional()
+  additionalData?: AdditionalDataDto;
 }

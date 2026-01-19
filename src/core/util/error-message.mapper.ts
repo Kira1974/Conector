@@ -6,8 +6,6 @@ export interface NetworkErrorInfo {
   source: 'DIFE' | 'MOL';
 }
 
-const HTTP_SERVER_ERROR_CODES = ['500', '502', '503', '504'] as const;
-
 export class ErrorMessageMapper {
   private static readonly DIFE_ERROR_CODE_MAP: Record<string, TransferMessage> = {
     'DIFE-0001': TransferMessage.KEY_RESOLUTION_ERROR,
@@ -17,7 +15,7 @@ export class ErrorMessageMapper {
     'DIFE-0005': TransferMessage.KEY_SUSPENDED,
     'DIFE-0006': TransferMessage.KEY_SUSPENDED_BY_PARTICIPANT,
     'DIFE-0007': TransferMessage.VALIDATION_FAILED,
-    'DIFE-0008': TransferMessage.PROVIDER_ERROR,
+    'DIFE-0008': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-0009': TransferMessage.VALIDATION_FAILED,
     'DIFE-0010': TransferMessage.VALIDATION_FAILED,
     'DIFE-0011': TransferMessage.VALIDATION_FAILED,
@@ -30,10 +28,10 @@ export class ErrorMessageMapper {
     'DIFE-0018': TransferMessage.VALIDATION_FAILED,
     'DIFE-4000': TransferMessage.INVALID_KEY_FORMAT,
     'DIFE-4001': TransferMessage.INVALID_KEY_FORMAT,
-    'DIFE-5000': TransferMessage.PROVIDER_ERROR,
-    'DIFE-5001': TransferMessage.PAYMENT_REJECTED,
+    'DIFE-5000': TransferMessage.TIMEOUT_ERROR,
+    'DIFE-5001': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-5002': TransferMessage.KEY_RESOLUTION_ERROR,
-    'DIFE-5003': TransferMessage.PAYMENT_REJECTED,
+    'DIFE-5003': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-5004': TransferMessage.VALIDATION_FAILED,
     'DIFE-5005': TransferMessage.INVALID_KEY_FORMAT,
     'DIFE-5006': TransferMessage.VALIDATION_FAILED,
@@ -50,31 +48,28 @@ export class ErrorMessageMapper {
     'DIFE-5017': TransferMessage.KEY_SUSPENDED,
     'DIFE-5018': TransferMessage.VALIDATION_FAILED,
     'DIFE-5019': TransferMessage.VALIDATION_FAILED,
-    'DIFE-5020': TransferMessage.PROVIDER_ERROR,
+    'DIFE-5020': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-5021': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-5022': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-5023': TransferMessage.KEY_RESOLUTION_ERROR,
     'DIFE-5024': TransferMessage.VALIDATION_FAILED,
     'DIFE-5025': TransferMessage.VALIDATION_FAILED,
     'DIFE-5026': TransferMessage.VALIDATION_FAILED,
-    'DIFE-9991': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9992': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9993': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9994': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9995': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9996': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9997': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9998': TransferMessage.PROVIDER_ERROR,
-    'DIFE-9999': TransferMessage.PROVIDER_ERROR
+    'DIFE-9991': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9992': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9993': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9994': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9995': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9996': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9997': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9998': TransferMessage.KEY_RESOLUTION_ERROR,
+    'DIFE-9999': TransferMessage.KEY_RESOLUTION_ERROR
   };
 
   private static readonly MOL_ERROR_CODE_MAP: Record<string, TransferMessage> = {
     '403': TransferMessage.PAYMENT_REJECTED,
     '400': TransferMessage.VALIDATION_FAILED,
-    '500': TransferMessage.PROVIDER_ERROR,
-    'MOL-5000': TransferMessage.PROVIDER_ERROR,
-    'MOL-5001': TransferMessage.PAYMENT_REJECTED,
-    'MOL-5003': TransferMessage.PAYMENT_REJECTED,
+    '500': TransferMessage.PAYMENT_NETWORK_ERROR,
     'MOL-5005': TransferMessage.VALIDATION_FAILED,
     'MOL-4009': TransferMessage.VALIDATION_FAILED,
     'MOL-4008': TransferMessage.VALIDATION_FAILED,
@@ -87,56 +82,25 @@ export class ErrorMessageMapper {
     'MOL-4013': TransferMessage.PAYMENT_REJECTED,
     'MOL-4014': TransferMessage.PAYMENT_REJECTED,
     'MOL-4016': TransferMessage.PAYMENT_REJECTED,
-    'MOL-4017': TransferMessage.PROVIDER_ERROR,
-    'MOL-4019': TransferMessage.PROVIDER_ERROR
+    'MOL-4017': TransferMessage.TIMEOUT_ERROR,
+    'MOL-4019': TransferMessage.TIMEOUT_ERROR
   };
 
   private static readonly HTTP_ERROR_CODE_MAP: Record<string, TransferMessage> = {
-    '500': TransferMessage.PROVIDER_ERROR,
-    '502': TransferMessage.PROVIDER_ERROR,
-    '503': TransferMessage.PROVIDER_ERROR,
-    '504': TransferMessage.PROVIDER_ERROR
+    '500': TransferMessage.PAYMENT_NETWORK_ERROR,
+    '502': TransferMessage.PAYMENT_NETWORK_ERROR,
+    '503': TransferMessage.PAYMENT_NETWORK_ERROR,
+    '504': TransferMessage.PAYMENT_NETWORK_ERROR
   };
-
-  private static readonly DIFE_UNCONTROLLED_ERRORS = [
-    'DIFE-0001',
-    'DIFE-0002',
-    'DIFE-0003',
-    'DIFE-0008',
-    'DIFE-5000',
-    'DIFE-5002',
-    'DIFE-5008',
-    'DIFE-5020',
-    'DIFE-9991',
-    'DIFE-9992',
-    'DIFE-9993',
-    'DIFE-9994',
-    'DIFE-9995',
-    'DIFE-9996',
-    'DIFE-9997',
-    'DIFE-9998',
-    'DIFE-9999'
-  ];
-
-  private static readonly MOL_UNCONTROLLED_ERRORS = ['MOL-5000', 'MOL-4017', 'MOL-4019', ...HTTP_SERVER_ERROR_CODES];
 
   static mapToMessage(errorInfo: NetworkErrorInfo | null): TransferMessage {
     if (!errorInfo) {
       return TransferMessage.UNKNOWN_ERROR;
     }
 
-    if (errorInfo.code) {
-      if (errorInfo.code.startsWith('DIFE-')) {
-        if (this.DIFE_ERROR_CODE_MAP[errorInfo.code]) {
-          return this.DIFE_ERROR_CODE_MAP[errorInfo.code];
-        }
-      } else if (errorInfo.code.startsWith('MOL-')) {
-        if (this.MOL_ERROR_CODE_MAP[errorInfo.code]) {
-          return this.MOL_ERROR_CODE_MAP[errorInfo.code];
-        }
-      }
+    const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
 
-      const codeMap = errorInfo.source === 'DIFE' ? this.DIFE_ERROR_CODE_MAP : this.MOL_ERROR_CODE_MAP;
+    if (errorInfo.code) {
       if (codeMap[errorInfo.code]) {
         return codeMap[errorInfo.code];
       }
@@ -155,21 +119,26 @@ export class ErrorMessageMapper {
           if (this.HTTP_ERROR_CODE_MAP[httpCode]) {
             return this.HTTP_ERROR_CODE_MAP[httpCode];
           }
-          return TransferMessage.PROVIDER_ERROR;
+          return errorInfo.source === 'DIFE'
+            ? TransferMessage.KEY_RESOLUTION_NETWORK_ERROR
+            : TransferMessage.PAYMENT_NETWORK_ERROR;
         }
       }
       if (lowerDescription.includes('payment') && lowerDescription.includes('fail')) {
         return TransferMessage.PAYMENT_PROCESSING_ERROR;
       }
-      if (
-        lowerDescription.includes('500') ||
-        lowerDescription.includes('http 500') ||
-        lowerDescription.includes('status code 500')
-      ) {
-        return TransferMessage.UNKNOWN_ERROR;
+      if (lowerDescription.includes('key') || lowerDescription.includes('resolution')) {
+        if (lowerDescription.includes('network') || lowerDescription.includes('connection')) {
+          return TransferMessage.KEY_RESOLUTION_NETWORK_ERROR;
+        }
+      }
+      if (lowerDescription.includes('network') || lowerDescription.includes('connection')) {
+        return errorInfo.source === 'DIFE'
+          ? TransferMessage.KEY_RESOLUTION_NETWORK_ERROR
+          : TransferMessage.PAYMENT_NETWORK_ERROR;
       }
       if (lowerDescription.includes('timeout')) {
-        return TransferMessage.PROVIDER_ERROR;
+        return TransferMessage.TIMEOUT_ERROR;
       }
     }
 
@@ -178,21 +147,5 @@ export class ErrorMessageMapper {
 
   static formatNetworkErrorMessage(description: string, source: 'DIFE' | 'MOL'): string {
     return `${source}: ${description}`;
-  }
-
-  static isControlledProviderError(errorInfo: NetworkErrorInfo | null): boolean {
-    if (!errorInfo?.code) {
-      return false;
-    }
-
-    if (errorInfo.source === 'DIFE') {
-      return !this.DIFE_UNCONTROLLED_ERRORS.includes(errorInfo.code);
-    }
-
-    if (errorInfo.source === 'MOL') {
-      return !this.MOL_UNCONTROLLED_ERRORS.includes(errorInfo.code);
-    }
-
-    return false;
   }
 }

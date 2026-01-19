@@ -303,29 +303,25 @@ export class MountebankHelper {
         return {
           end_to_end_id: 'mol-end-to-end-id-processing',
           execution_id: 'mol-execution-id-processing',
-          status: 'PROCESSING'
+          status: 'PENDING'
         };
       case 'validation_error':
         return {
           status: 'ERROR',
-          errors: [
-            {
-              code: 'MOL-5005',
-              description: 'The field has an invalid format.',
-              id: 'error-id-mol-5005'
-            }
-          ]
+          error: {
+            code: '400',
+            description: 'Validation failed',
+            id: 'error-id-400'
+          }
         };
       case 'rejected':
         return {
           status: 'ERROR',
-          errors: [
-            {
-              code: 'MOL-5003',
-              description: "The Recipient Participant does not exist or isn't active.",
-              id: 'error-id-mol-5003'
-            }
-          ]
+          error: {
+            code: '403',
+            description: 'The participant id is inactive.',
+            id: 'error-id-403'
+          }
         };
       case 'server_error':
         return {

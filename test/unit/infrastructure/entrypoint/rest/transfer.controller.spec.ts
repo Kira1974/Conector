@@ -59,21 +59,22 @@ describe('TransferController', () => {
 
   describe('transfer', () => {
     const mockRequest: TransferRequestDto = {
+      transactionId: 'TXN-TEST-123',
       transaction: {
-        id: 'TXN-TEST-123',
         amount: {
-          total: 100000,
+          value: 100000,
           currency: 'COP'
         },
-        description: 'Test transfer',
+        description: 'Test transfer'
+      },
+      transactionParties: {
         payee: {
-          account: {
-            type: 'MOBILE',
-            number: '3001234567'
+          accountInfo: {
+            value: '3001234567'
           }
-        },
-        additionalData: {}
-      }
+        }
+      },
+      additionalData: {}
     };
 
     it('should process transfer request successfully', async () => {
@@ -93,23 +94,14 @@ describe('TransferController', () => {
       await controller.transfer(mockRequest, mockResponse);
 
       expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        code: 200,
-        message: mockResponseDto.message,
-        data: {
-          state: mockResponseDto.responseCode,
-          transactionId: mockResponseDto.transactionId,
-          externalTransactionId: mockResponseDto.externalTransactionId,
-          additionalData: mockResponseDto.additionalData
-        }
-      });
+      expect(mockResponse.json).toHaveBeenCalledWith(mockResponseDto);
       expect(transferUseCase.executeTransfer).toHaveBeenCalledWith(mockRequest);
       expect(mockLogger.log).toHaveBeenCalledWith(
         'CHARON Request',
         expect.objectContaining({
           method: 'POST',
-          transactionId: mockRequest.transaction.id,
-          amount: mockRequest.transaction.amount.total,
+          transactionId: mockRequest.transactionId,
+          amount: mockRequest.transaction.amount.value,
           currency: mockRequest.transaction.amount.currency
         })
       );
@@ -118,7 +110,7 @@ describe('TransferController', () => {
         expect.objectContaining({
           status: 200,
           transactionId: mockResponseDto.transactionId,
-          state: mockResponseDto.responseCode
+          responseCode: mockResponseDto.responseCode
         })
       );
     });
@@ -135,14 +127,7 @@ describe('TransferController', () => {
       await controller.transfer(mockRequest, mockResponse);
 
       expect(mockResponse.status).toHaveBeenCalledWith(422);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        code: 422,
-        message: mockErrorResponse.message,
-        data: {
-          state: mockErrorResponse.responseCode,
-          transactionId: mockErrorResponse.transactionId
-        }
-      });
+      expect(mockResponse.json).toHaveBeenCalledWith(mockErrorResponse);
       expect(transferUseCase.executeTransfer).toHaveBeenCalledWith(mockRequest);
     });
 
@@ -160,7 +145,7 @@ describe('TransferController', () => {
         'CHARON Request',
         expect.objectContaining({
           method: 'POST',
-          transactionId: mockRequest.transaction.id,
+          transactionId: mockRequest.transactionId,
           amount: 100000,
           currency: 'COP'
         })
@@ -170,7 +155,7 @@ describe('TransferController', () => {
         expect.objectContaining({
           status: 200,
           transactionId: mockResponseDto.transactionId,
-          state: mockResponseDto.responseCode
+          responseCode: mockResponseDto.responseCode
         })
       );
     });

@@ -1,14 +1,7 @@
 import * as crypto from 'crypto';
 
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import {
-  ThLogger,
-  ThLoggerService,
-  ThLoggerComponent,
-  ThRuntimeContext,
-  ThEventTypeBuilder,
-  ThStandardResponse
-} from 'themis';
+import { ThLogger, ThLoggerService, ThLoggerComponent, ThRuntimeContext, ThEventTypeBuilder } from 'themis';
 
 interface HttpRequest {
   method: string;
@@ -61,24 +54,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     this.logError(exception, errorDetails, request, correlationId);
 
-    const transactionId = this.extractTransactionId(request);
-    const state = this.mapToResponseCode(errorDetails.errorCode);
-
-    const responseData: Record<string, any> = {
-      state
+    const errorResponse: Record<string, any> = {
+      responseCode: this.mapToResponseCode(errorDetails.errorCode),
+      message: errorDetails.message,
+      timestamp: new Date().toISOString()
     };
 
-    if (transactionId) {
-      responseData.transactionId = transactionId;
+    if (errorDetails.correlationId) {
+      errorResponse.correlationId = errorDetails.correlationId;
     }
 
-    const standardResponse: ThStandardResponse<typeof responseData> = {
-      code: errorDetails.httpStatus,
-      message: errorDetails.message,
-      data: responseData
-    };
-
-    response.status(errorDetails.httpStatus).json(standardResponse);
+    response.status(errorDetails.httpStatus).json(errorResponse);
   }
 
   private getErrorDetails(exception: unknown, correlationId?: string): ErrorDetails {
@@ -288,11 +274,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     );
   }
 
-  private extractTransactionId(request: HttpRequest): string | undefined {
-    const body = request.body as { transaction?: { id?: string } } | undefined;
-    return body?.transaction?.id;
-  }
-
   private isKeyResolutionError(exception: unknown): boolean {
     if (!(exception instanceof HttpException)) {
       return false;
@@ -309,37 +290,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     correlationId?: string
   ): void {
     const exceptionResponse = exception.getResponse() as Record<string, any>;
-    const httpStatus = exception.getStatus();
-    const message = String(exceptionResponse.message || 'Key resolution error');
-
     this.logError(
       exception,
       {
-        message,
+        message: String(exceptionResponse.message || 'Key resolution error'),
         errorCode: 'KEY_RESOLUTION_ERROR',
-        httpStatus,
+        httpStatus: exception.getStatus(),
         correlationId
       },
       request,
       correlationId
     );
-    const state = (exceptionResponse.responseCode as string | undefined) || 'ERROR';
-
-    const responseData: Record<string, string> = {
-      state,
-      ...(exceptionResponse.networkCode && { networkCode: exceptionResponse.networkCode as string }),
-      ...(exceptionResponse.networkMessage && { networkMessage: exceptionResponse.networkMessage as string }),
-      ...(exceptionResponse.key && { key: exceptionResponse.key as string }),
-      ...(exceptionResponse.keyType && { keyType: exceptionResponse.keyType as string })
-    };
-
-    const standardResponse: ThStandardResponse<typeof responseData> = {
-      code: httpStatus,
-      message,
-      data: responseData
-    };
-
-    response.status(httpStatus).json(standardResponse);
+    response.status(exception.getStatus()).json(exceptionResponse);
   }
 
   private isTimeoutError(exception: unknown): boolean {

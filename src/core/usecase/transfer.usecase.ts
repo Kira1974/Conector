@@ -2,28 +2,31 @@ import { Injectable } from '@nestjs/common';
 import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
 import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
-import {
-  KeyTypeDife,
-  PaymentMethodTypeDife,
-  IdentificationTypeDife,
-  PersonTypeDife,
-  TransferMessage
-} from '@core/constant';
 
 import { IDifeProvider, IMolPaymentProvider } from '../provider';
 import { AdditionalDataKey, KeyResolutionRequest } from '../model';
 import {
   generateCorrelationId,
   calculateKeyType,
+  ErrorMessageMapper,
   validateKeyFormatBeforeResolution,
+  validatePayeeDocumentNumber,
+  validateBrebAccountNumber,
   buildDifeErrorResponseIfAny,
+  isDifeValidationError,
+  isMolValidationError,
+  isMolValidationErrorByCode,
   extractNetworkErrorInfo,
   buildAdditionalDataFromKeyResolution,
-  determineResponseCodeFromMessage,
-  parsePayeeName
+  determineResponseCodeFromMessage
 } from '../util';
-import { ErrorMessageMapper } from '../util/error-message.mapper';
-import { UNKNOWN_ERROR_MESSAGE, DEFAULT_TIMEOUT_MESSAGE } from '../util/error-constants.util';
+import {
+  ERROR_SOURCE_DIFE,
+  ERROR_SOURCE_MOL,
+  UNKNOWN_ERROR_MESSAGE,
+  DEFAULT_TIMEOUT_MESSAGE
+} from '../util/error-constants.util';
+import { TransferMessage } from '../constant';
 import { KeyResolutionException } from '../exception/custom.exceptions';
 import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer-request.dto';
 import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
@@ -57,39 +60,20 @@ export class TransferUseCase {
         return keyValidation;
       }
 
-      let keyResolution: DifeKeyResponseDto;
-      let keyResolutionSource: 'FROM_REQUEST' | 'FROM_DIFE';
-
-      const keyResolutionFromRequest = this.extractKeyResolutionFromAdditionalData(request);
-
-      if (this.isKeyResolutionComplete(keyResolutionFromRequest)) {
-        this.logger.log('Using keyResolution from request additionalData, skipping DIFE call', {
-          transactionId: request.transaction.id
-        });
-        keyResolution = keyResolutionFromRequest;
-        keyResolutionSource = 'FROM_REQUEST';
-      } else {
-        this.logger.log('keyResolution not provided or incomplete in additionalData, calling DIFE', {
-          transactionId: request.transaction.id
-        });
-        const keyResolutionRequest = this.buildKeyResolutionRequest(request);
-        keyResolution = await this.difeProvider.resolveKey(keyResolutionRequest);
-        keyResolutionSource = 'FROM_DIFE';
-      }
-
+      const keyResolutionRequest = this.buildKeyResolutionRequest(request);
+      const keyResolution: DifeKeyResponseDto = await this.difeProvider.resolveKey(keyResolutionRequest);
       const difeAdditionalData = buildAdditionalDataFromKeyResolution(keyResolution);
 
-      const difeErrorResponse = buildDifeErrorResponseIfAny(request, keyResolution);
-      if (difeErrorResponse) {
-        return difeErrorResponse;
+      const validationError = this.validateRequest(request, keyResolution);
+      if (validationError) {
+        return validationError;
       }
 
       const paymentResponse = await this.paymentProvider.createPayment(request, keyResolution);
 
       paymentResponse.additionalData = {
         ...(paymentResponse.additionalData || {}),
-        ...difeAdditionalData,
-        KEY_RESOLUTION_SOURCE: keyResolutionSource
+        ...difeAdditionalData
       };
 
       const paymentValidation = this.validatePaymentResponse(request, paymentResponse);
@@ -99,116 +83,52 @@ export class TransferUseCase {
 
       return this.waitForFinalState(request, paymentResponse, paymentValidation.endToEndId, startedAt);
     } catch (error: unknown) {
-      return this.handleTransferError(error, request.transaction.id);
+      return this.handleTransferError(error, request.transactionId);
     }
   }
 
-  private extractKeyResolutionFromAdditionalData(request: TransferRequestDto): DifeKeyResponseDto | null {
-    const accountDetail = request.transaction.payee.account.detail;
-
-    if (!accountDetail) {
-      return null;
+  private validateRequest(request: TransferRequestDto, keyResolution: DifeKeyResponseDto): TransferResponseDto | null {
+    const difeErrorResponse = buildDifeErrorResponseIfAny(request, keyResolution);
+    if (difeErrorResponse) {
+      return difeErrorResponse;
     }
 
-    const keyValue = accountDetail['KEY_VALUE'] as string | undefined;
-    const keyType = accountDetail['KEY_TYPE'] as string | undefined;
-    const participantNit = accountDetail['PARTICIPANT_NIT'] as string | undefined;
-    const participantSpbvi = accountDetail['PARTICIPANT_SPBVI'] as string | undefined;
-    const difeTraceId = accountDetail['DIFE_TRACE_ID'] as string | undefined;
-
-    if (!keyValue || !keyType || !participantNit || !participantSpbvi) {
-      return null;
+    const payeeValidationError = validatePayeeDocumentNumber(request, keyResolution);
+    if (payeeValidationError) {
+      this.logger.warn('Payee document number validation failed', {
+        ...this.buildLogContext(request.transactionId)
+      });
+      return payeeValidationError;
     }
 
-    const accountType = request.transaction.payee.account.type;
-    const accountNumber = request.transaction.payee.account.number;
-    const documentType = request.transaction.payee.documentType;
-    const documentNumber = request.transaction.payee.documentNumber;
-    const payeeName = request.transaction.payee.name;
-    const personType = request.transaction.payee.personType;
-
-    if (!accountType || !accountNumber) {
-      return null;
+    const brebAccountValidationError = validateBrebAccountNumber(request, keyResolution);
+    if (brebAccountValidationError) {
+      this.logger.warn('BREB account number validation failed', {
+        ...this.buildLogContext(request.transactionId)
+      });
+      return brebAccountValidationError;
     }
 
-    const additionalData = request.transaction.additionalData || {};
-    const difeExecutionId = additionalData['BREB_DIFE_END_TO_END_ID'] as string | undefined;
-    const names = parsePayeeName(payeeName);
+    return null;
+  }
 
-    const correlationId = generateCorrelationId();
-
+  private buildLogContext(transactionId: string): { correlationId: string; transactionId: string } {
     return {
-      correlation_id: correlationId,
-      execution_id: difeExecutionId,
-      trace_id: difeTraceId || '',
-      status: 'SUCCESS',
-      key: {
-        key: {
-          type: keyType as KeyTypeDife,
-          value: keyValue
-        },
-        participant: {
-          nit: participantNit,
-          spbvi: participantSpbvi
-        },
-        payment_method: {
-          type: accountType as PaymentMethodTypeDife,
-          number: accountNumber
-        },
-        person: {
-          type: (personType || 'N') as PersonTypeDife,
-          identification: {
-            type: (documentType || 'CC') as IdentificationTypeDife,
-            number: documentNumber || ''
-          },
-          name: names.firstName
-            ? {
-                first_name: names.firstName,
-                second_name: names.secondName || '',
-                last_name: names.lastName || '',
-                second_last_name: names.secondLastName || ''
-              }
-            : undefined,
-          legal_name: names.legalName
-        }
-      }
+      correlationId: transactionId,
+      transactionId
     };
-  }
-
-  private isKeyResolutionComplete(keyResolution: DifeKeyResponseDto | null): keyResolution is DifeKeyResponseDto {
-    if (!keyResolution?.key) {
-      return false;
-    }
-
-    const key = keyResolution.key;
-
-    return !!(
-      keyResolution.status === 'SUCCESS' &&
-      keyResolution.correlation_id &&
-      key.key?.type &&
-      key.key?.value &&
-      key.participant?.nit &&
-      key.participant?.spbvi &&
-      key.payment_method?.type &&
-      key.payment_method?.number
-    );
-  }
-
-  private buildLogContext(transactionId: string): { transactionId: string } {
-    return { transactionId };
   }
 
   private buildKeyResolutionRequest(request: TransferRequestDto): KeyResolutionRequest {
     const correlationId = generateCorrelationId();
-    const keyValue = request.transaction.payee.account.detail?.['KEY_VALUE'] as string | undefined;
-    const key = keyValue || '';
+    const key = request.transactionParties.payee.accountInfo.value;
     const keyType = calculateKeyType(key);
 
     return {
       correlationId,
       key,
       keyType,
-      transactionId: request.transaction.id
+      transactionId: request.transactionId
     };
   }
 
@@ -218,27 +138,26 @@ export class TransferUseCase {
   ):
     | { endToEndId: string; errorResponse?: undefined }
     | { endToEndId?: undefined; errorResponse: TransferResponseDto } {
-    if (
-      paymentResponse.responseCode === TransferResponseCode.ERROR ||
-      paymentResponse.responseCode === TransferResponseCode.VALIDATION_FAILED ||
-      paymentResponse.responseCode === TransferResponseCode.REJECTED_BY_PROVIDER ||
-      paymentResponse.responseCode === TransferResponseCode.PROVIDER_ERROR
-    ) {
+    if (paymentResponse.responseCode === TransferResponseCode.ERROR) {
       return { errorResponse: paymentResponse };
     }
 
     const additionalData = paymentResponse.additionalData as Record<string, string> | undefined;
     const endToEndId = additionalData?.[AdditionalDataKey.END_TO_END];
 
-    if (!endToEndId || endToEndId.trim() === '') {
-      this.logger.error('Missing END_TO_END_ID in payment response', {
-        ...this.buildLogContext(request.transaction.id)
+    if (!endToEndId) {
+      this.logger.error('Payment response missing endToEndId', {
+        transactionId: request.transactionId,
+        externalTransactionId: paymentResponse.externalTransactionId
       });
+
       return {
         errorResponse: {
-          transactionId: request.transaction.id,
+          transactionId: request.transactionId,
           responseCode: TransferResponseCode.ERROR,
-          message: TransferMessage.PAYMENT_PROCESSING_ERROR
+          message: TransferMessage.PAYMENT_PROCESSING_ERROR,
+          networkMessage: undefined,
+          networkCode: undefined
         }
       };
     }
@@ -253,14 +172,17 @@ export class TransferUseCase {
     startedAt: number
   ): Promise<TransferResponseDto> {
     this.logger.log('Waiting for transfer confirmation', {
-      transactionId: request.transaction.id,
+      eventId: request.transactionId,
+      traceId: request.transactionId,
+      correlationId: endToEndId,
+      transactionId: request.transactionId,
       endToEndId,
       timeoutSeconds: TransferUseCase.TRANSFER_TIMEOUT_SECONDS
     });
 
     try {
       const confirmationResponse = await this.pendingTransferService.waitForConfirmation(
-        request.transaction.id,
+        request.transactionId,
         endToEndId,
         startedAt
       );
@@ -268,7 +190,7 @@ export class TransferUseCase {
       const isApproved = confirmationResponse.responseCode === TransferResponseCode.APPROVED;
 
       return {
-        transactionId: request.transaction.id,
+        transactionId: request.transactionId,
         responseCode: confirmationResponse.responseCode,
         message: isApproved ? TransferMessage.PAYMENT_APPROVED : TransferMessage.PAYMENT_DECLINED,
         networkMessage: confirmationResponse.networkMessage,
@@ -280,13 +202,16 @@ export class TransferUseCase {
       const timeoutMessage = timeoutError instanceof Error ? timeoutError.message : DEFAULT_TIMEOUT_MESSAGE;
 
       this.logger.warn('Transfer confirmation timeout (controlled)', {
-        transactionId: request.transaction.id,
+        eventId: request.transactionId,
+        traceId: request.transactionId,
+        correlationId: endToEndId,
+        transactionId: request.transactionId,
         endToEndId,
         error: timeoutMessage
       });
 
       return {
-        transactionId: request.transaction.id,
+        transactionId: request.transactionId,
         responseCode: TransferResponseCode.PENDING,
         message: TransferMessage.PAYMENT_PENDING,
         networkMessage: undefined,
@@ -298,57 +223,107 @@ export class TransferUseCase {
   }
 
   private handleTransferError(error: unknown, transactionId: string): TransferResponseDto {
-    const errorMessage = error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE;
-
     if (error instanceof KeyResolutionException) {
-      const networkErrorInfo = extractNetworkErrorInfo(error.message);
+      const errorMessage = error.message;
+      const extractedErrorInfo = extractNetworkErrorInfo(errorMessage);
 
-      this.logger.warn('Key resolution error (controlled)', {
-        transactionId,
-        errorCode: networkErrorInfo?.code,
-        error: error.message
-      });
-
-      return {
-        transactionId,
-        responseCode: TransferResponseCode.VALIDATION_FAILED,
-        message: TransferMessage.KEY_RESOLUTION_ERROR,
-        networkMessage: error.message,
-        ...(networkErrorInfo?.code && { networkCode: networkErrorInfo.code })
+      const errorInfo: import('../util/error-message.mapper').NetworkErrorInfo = extractedErrorInfo || {
+        code: undefined,
+        description: this.extractNetworkErrorMessageOnly(errorMessage),
+        source: 'DIFE'
       };
+
+      return this.buildErrorResponse(
+        transactionId,
+        TransferResponseCode.ERROR,
+        TransferMessage.KEY_RESOLUTION_ERROR,
+        errorInfo
+      );
     }
 
+    const errorMessage = error instanceof Error ? error.message : UNKNOWN_ERROR_MESSAGE;
     const errorInfo = extractNetworkErrorInfo(errorMessage);
-    const networkErrorInfo = errorInfo
-      ? { code: errorInfo.code, description: errorMessage, source: errorInfo.source }
-      : null;
-    const mappedMessage = networkErrorInfo
-      ? ErrorMessageMapper.mapToMessage(networkErrorInfo)
-      : TransferMessage.UNKNOWN_ERROR;
-    const fromProvider = !!errorInfo;
-    const responseCode = determineResponseCodeFromMessage(mappedMessage, fromProvider, networkErrorInfo);
+    const mappedMessage = ErrorMessageMapper.mapToMessage(errorInfo);
+    const responseCode = determineResponseCodeFromMessage(mappedMessage);
+    const isDifeValidationErr = isDifeValidationError(errorMessage);
+    const isMolValidationErr = isMolValidationError(errorMessage) || isMolValidationErrorByCode(errorInfo);
 
-    const isControlledError = networkErrorInfo && ErrorMessageMapper.isControlledProviderError(networkErrorInfo);
-
-    if (isControlledError) {
-      this.logger.warn('Provider error (controlled)', {
-        transactionId,
-        source: errorInfo?.source,
-        errorCode: errorInfo?.code,
+    if (isDifeValidationErr || isMolValidationErr) {
+      const source = isDifeValidationErr ? ERROR_SOURCE_DIFE : ERROR_SOURCE_MOL;
+      this.logger.warn(`${source} validation error detected`, {
+        ...this.buildLogContext(transactionId),
         error: errorMessage
       });
     } else {
-      this.logger.error('Transfer execution failed', error, {
-        transactionId
+      this.logger.error('Transfer execution failed', {
+        ...this.buildLogContext(transactionId),
+        error: errorMessage
       });
     }
+
+    return this.buildErrorResponse(transactionId, responseCode, mappedMessage, errorInfo);
+  }
+
+  private buildErrorResponse(
+    transactionId: string,
+    responseCode: TransferResponseCode,
+    message: TransferMessage,
+    errorInfo: import('../util/error-message.mapper').NetworkErrorInfo | null
+  ): TransferResponseDto {
+    const networkMessage = errorInfo
+      ? ErrorMessageMapper.formatNetworkErrorMessage(errorInfo.description, errorInfo.source)
+      : undefined;
 
     return {
       transactionId,
       responseCode,
-      message: mappedMessage,
-      networkMessage: errorMessage,
-      ...(errorInfo?.code && { networkCode: errorInfo.code })
+      message,
+      networkMessage,
+      networkCode: errorInfo?.code
     };
+  }
+
+  private extractNetworkErrorMessageOnly(errorMessage: string): string {
+    const difeCodePattern = /(DIFE-\d{4})/;
+    const difeCodeMatch = errorMessage.match(difeCodePattern);
+
+    if (difeCodeMatch) {
+      const code = difeCodeMatch[1];
+      const codeIndex = errorMessage.indexOf(code);
+      const afterCode = errorMessage.substring(codeIndex + code.length).trim();
+      const descriptionMatch = afterCode.match(/^[:\s]*(.+?)(?:\s*\(|$)/);
+      if (descriptionMatch) {
+        return descriptionMatch[1].trim();
+      }
+    }
+
+    const technicalErrorPattern = /:\s*(?:Cannot read properties|TypeError|ReferenceError|Error:)\s*.+/i;
+    if (technicalErrorPattern.test(errorMessage)) {
+      const parts = errorMessage.split(technicalErrorPattern);
+      if (parts.length > 0 && parts[0]) {
+        const cleanMessage = parts[0].replace(/:\s*$/, '').trim();
+        if (cleanMessage.toLowerCase().includes('key resolution')) {
+          return cleanMessage;
+        }
+      }
+    }
+
+    const colonIndex = errorMessage.lastIndexOf(':');
+    if (colonIndex > 0) {
+      const beforeColon = errorMessage.substring(0, colonIndex).trim();
+      const technicalKeywords = ['cannot read', 'typeerror', 'referenceerror', 'undefined', 'null'];
+      const hasTechnicalError = technicalKeywords.some((keyword) =>
+        errorMessage
+          .substring(colonIndex + 1)
+          .toLowerCase()
+          .includes(keyword)
+      );
+
+      if (hasTechnicalError && beforeColon.toLowerCase().includes('key resolution')) {
+        return beforeColon;
+      }
+    }
+
+    return 'Key resolution failed';
   }
 }

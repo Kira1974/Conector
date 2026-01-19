@@ -48,7 +48,7 @@ export class PendingTransferService implements OnModuleDestroy {
     this.MOL_QUERY_TIMEOUT_MS = this.externalServicesConfig.getMolQueryTimeout();
     this.ENABLE_MOL_POLLING = this.transferConfig.isPollingEnabled();
 
-    if (this.transferConfig.isCleanupIntervalEnabled()) {
+    if (process.env.NODE_ENV !== 'test') {
       this.startCleanupInterval();
     }
   }
@@ -274,6 +274,9 @@ export class PendingTransferService implements OnModuleDestroy {
     const waitingDurationMs = resolvedAt - pending.createdAt;
 
     const logData: Record<string, unknown> = {
+      eventId: pending.transactionId,
+      traceId: pending.transactionId,
+      correlationId: endToEndId,
       transactionId: pending.transactionId,
       endToEndId,
       finalState,

@@ -61,26 +61,23 @@ describe('TransferUseCase', () => {
 
   describe('executeTransfer', () => {
     const mockRequest: TransferRequestDto = {
+      transactionId: 'TXN-TEST',
       transaction: {
-        id: 'TXN-TEST',
         amount: {
-          total: 100.0,
+          value: 100.0,
           currency: 'COP'
         },
-        description: 'Test transfer',
+        description: 'Test transfer'
+      },
+      transactionParties: {
         payee: {
-          documentType: 'CC',
-          documentNumber: '1234567890',
-          account: {
-            type: 'MOBILE',
-            number: '3001234567',
-            detail: {
-              KEY_VALUE: '3001234567'
-            }
-          }
-        },
-        additionalData: {}
-      }
+          accountInfo: {
+            value: '3001234567'
+          },
+          documentNumber: '1234567890'
+        }
+      },
+      additionalData: {}
     };
 
     const mockDifeResponse: DifeKeyResponseDto = {
@@ -151,8 +148,8 @@ describe('TransferUseCase', () => {
       expect(result.externalTransactionId).toBe('MOL-PAY-123');
       expect(result.additionalData?.['END_TO_END']).toBe('E2E-456');
       expect(result.additionalData?.['DOCUMENT_NUMBER']).toBe('1234567890');
-      expect(result.additionalData?.['NAME']).toBe('Laura Turga Daniela Drama');
-      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('1234567890');
+      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Lau** Tur** Dan**** Dra**');
+      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('****567890');
       expect(result.additionalData?.['ACCOUNT_TYPE']).toBe('CAHO');
 
       expect(mockDifeProvider.resolveKey).toHaveBeenCalledWith(
@@ -170,18 +167,13 @@ describe('TransferUseCase', () => {
       );
     });
 
-    it('should fail transfer with REJECTED_BY_PROVIDER when key format is invalid (lowercase letters, no @)', async () => {
+    it('should fail transfer with VALIDATION_FAILED when key format is invalid (lowercase letters, no @)', async () => {
       const invalidKeyRequest: TransferRequestDto = {
-        transaction: {
-          ...mockRequest.transaction,
+        ...mockRequest,
+        transactionParties: {
           payee: {
-            ...mockRequest.transaction.payee,
-            account: {
-              type: 'MOBILE',
-              number: '30131dsdsad211sf04',
-              detail: {
-                KEY_VALUE: '30131dsdsad211sf04'
-              }
+            accountInfo: {
+              value: '30131dsdsad211sf04'
             }
           }
         }
@@ -195,85 +187,55 @@ describe('TransferUseCase', () => {
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
     });
 
-    it('should execute transfer using keyResolution from request additionalData when complete', async () => {
-      const requestWithKeyResolution: TransferRequestDto = {
-        transaction: {
-          ...mockRequest.transaction,
+    it('should fail transfer with VALIDATION_FAILED when payee documentNumber does not match DIFE identificationNumber', async () => {
+      const mismatchedRequest: TransferRequestDto = {
+        ...mockRequest,
+        transactionParties: {
           payee: {
-            name: 'Laura Turga Daniela Drama',
-            personType: 'N',
-            documentType: 'CC',
-            documentNumber: '1234567890',
-            account: {
-              type: 'CAHO',
-              number: '1234567890',
-              detail: {
-                KEY_VALUE: '3001234567',
-                DIFE_TRACE_ID: 'TRACE-FROM-DOMAIN',
-                KEY_TYPE: 'O',
-                PARTICIPANT_NIT: '900123456',
-                PARTICIPANT_SPBVI: 'CRB'
-              }
-            }
-          },
-          additionalData: {}
-        }
-      };
-
-      mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
-      mockPendingTransferService.waitForConfirmation.mockResolvedValue({
-        transactionId: 'E2E-456',
-        responseCode: TransferResponseCode.APPROVED,
-        message: TransferMessage.PAYMENT_APPROVED,
-        externalTransactionId: 'E2E-456',
-        additionalData: {
-          END_TO_END: 'E2E-456',
-          EXECUTION_ID: 'TXN-TEST'
-        }
-      });
-
-      const result = await useCase.executeTransfer(requestWithKeyResolution);
-
-      expect(result.responseCode).toBe(TransferResponseCode.APPROVED);
-      expect(result.additionalData?.['KEY_RESOLUTION_SOURCE']).toBe('FROM_REQUEST');
-      expect(mockDifeProvider.resolveKey).not.toHaveBeenCalled();
-      expect(mockMolProvider.createPayment).toHaveBeenCalled();
-    });
-
-    it('should call DIFE when keyResolution in additionalData is incomplete (missing required fields)', async () => {
-      const requestWithIncompleteKeyResolution: TransferRequestDto = {
-        transaction: {
-          ...mockRequest.transaction,
-          additionalData: {
-            BREB_DIFE_CORRELATION_ID: 'CORR-FROM-DOMAIN',
-            BREB_KEY_TYPE: 'O'
-            // Missing BREB_PARTICIPANT_NIT and BREB_PARTICIPANT_SPBVI
+            accountInfo: {
+              value: '3001234567'
+            },
+            documentNumber: '9999999999'
           }
         }
       };
 
       mockDifeProvider.resolveKey.mockResolvedValue(mockDifeResponse);
-      mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
-      mockPendingTransferService.waitForConfirmation.mockResolvedValue({
-        transactionId: 'E2E-456',
-        responseCode: TransferResponseCode.APPROVED,
-        message: TransferMessage.PAYMENT_APPROVED,
-        externalTransactionId: 'E2E-456',
-        additionalData: {
-          END_TO_END: 'E2E-456',
-          EXECUTION_ID: 'TXN-TEST'
-        }
-      });
 
-      const result = await useCase.executeTransfer(requestWithIncompleteKeyResolution);
+      const result = await useCase.executeTransfer(mismatchedRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.APPROVED);
-      expect(result.additionalData?.['KEY_RESOLUTION_SOURCE']).toBe('FROM_DIFE');
-      expect(mockDifeProvider.resolveKey).toHaveBeenCalled();
-      expect(mockMolProvider.createPayment).toHaveBeenCalled();
+      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.message).toBe(TransferMessage.DOCUMENT_MISMATCH);
+      expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
+      expect(mockPendingTransferService.waitForConfirmation).not.toHaveBeenCalled();
     });
 
-    it('should call DIFE when keyResolution is not provided in additionalData', async () => {
+    it('should fail transfer with VALIDATION_FAILED when BREB_ACCOUNT_NUMBER does not match DIFE paymentMethod number', async () => {
+      const mismatchedRequest: TransferRequestDto = {
+        ...mockRequest,
+        additionalData: {
+          BREB_ACCOUNT_NUMBER: '9999999999'
+        }
+      };
+
+      mockDifeProvider.resolveKey.mockResolvedValue(mockDifeResponse);
+
+      const result = await useCase.executeTransfer(mismatchedRequest);
+
+      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.message).toBe(TransferMessage.ACCOUNT_MISMATCH);
+      expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
+      expect(mockPendingTransferService.waitForConfirmation).not.toHaveBeenCalled();
+    });
+
+    it('should execute transfer successfully when BREB_ACCOUNT_NUMBER matches DIFE paymentMethod number', async () => {
+      const requestWithBreb: TransferRequestDto = {
+        ...mockRequest,
+        additionalData: {
+          BREB_ACCOUNT_NUMBER: '1234567890'
+        }
+      };
+
       mockDifeProvider.resolveKey.mockResolvedValue(mockDifeResponse);
       mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
       mockPendingTransferService.waitForConfirmation.mockResolvedValue({
@@ -287,11 +249,37 @@ describe('TransferUseCase', () => {
         }
       });
 
-      const result = await useCase.executeTransfer(mockRequest);
+      const result = await useCase.executeTransfer(requestWithBreb);
 
       expect(result.responseCode).toBe(TransferResponseCode.APPROVED);
-      expect(result.additionalData?.['KEY_RESOLUTION_SOURCE']).toBe('FROM_DIFE');
-      expect(mockDifeProvider.resolveKey).toHaveBeenCalled();
+      expect(mockMolProvider.createPayment).toHaveBeenCalled();
+    });
+
+    it('should execute transfer successfully when additionalData contains other fields but not BREB_ACCOUNT_NUMBER', async () => {
+      const requestWithOtherData: TransferRequestDto = {
+        ...mockRequest,
+        additionalData: {
+          OTHER_FIELD: 'some value',
+          ANOTHER_FIELD: 'another value'
+        }
+      };
+
+      mockDifeProvider.resolveKey.mockResolvedValue(mockDifeResponse);
+      mockMolProvider.createPayment.mockResolvedValue(mockMolResponse);
+      mockPendingTransferService.waitForConfirmation.mockResolvedValue({
+        transactionId: 'E2E-456',
+        responseCode: TransferResponseCode.APPROVED,
+        message: TransferMessage.PAYMENT_APPROVED,
+        externalTransactionId: 'E2E-456',
+        additionalData: {
+          END_TO_END: 'E2E-456',
+          EXECUTION_ID: 'TXN-TEST'
+        }
+      });
+
+      const result = await useCase.executeTransfer(requestWithOtherData);
+
+      expect(result.responseCode).toBe(TransferResponseCode.APPROVED);
       expect(mockMolProvider.createPayment).toHaveBeenCalled();
     });
 
@@ -353,7 +341,7 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.PROVIDER_ERROR);
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
       expect(result.networkCode).toBe('DIFE-0001');
       expect(result.networkMessage).toContain('DIFE:');
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
@@ -403,7 +391,7 @@ describe('TransferUseCase', () => {
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
     });
 
-    it('should return PROVIDER_ERROR when DIFE returns non-validation error (DIFE-0001)', async () => {
+    it('should return ERROR when DIFE returns non-validation error (DIFE-0001)', async () => {
       const nonValidationError = new Error(
         'External service error in https://keymgmt-test.opencco.com/v1/key/resolve: DIFE API error: System error (DIFE-0001)'
       );
@@ -411,9 +399,9 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.PROVIDER_ERROR);
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
       expect(result.networkCode).toBe('DIFE-0001');
-      expect(result.networkMessage).toContain('DIFE-0001');
+      expect(result.networkMessage).toContain('DIFE:');
       expect(mockMolProvider.createPayment).not.toHaveBeenCalled();
     });
 
@@ -443,7 +431,7 @@ describe('TransferUseCase', () => {
       const result = await useCase.executeTransfer(mockRequest);
 
       expect(result.responseCode).toBe(TransferResponseCode.ERROR);
-      expect(result.message).toBe(TransferMessage.UNKNOWN_ERROR);
+      expect(result.message).toBe(TransferMessage.PAYMENT_PROCESSING_ERROR);
     });
 
     it('should return provider ERROR response when MOL returns error status without throwing', async () => {
@@ -469,7 +457,11 @@ describe('TransferUseCase', () => {
       const result = await useCase.executeTransfer(mockRequest);
 
       expect(result.responseCode).toBe(TransferResponseCode.ERROR);
-      expect(result.message).toBe(TransferMessage.UNKNOWN_ERROR);
+      expect([
+        TransferMessage.KEY_RESOLUTION_NETWORK_ERROR,
+        TransferMessage.PAYMENT_NETWORK_ERROR,
+        TransferMessage.NETWORK_ERROR
+      ]).toContain(result.message);
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
@@ -502,9 +494,9 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
       expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
-      expect(result.networkMessage).toContain('Cannot read properties of undefined');
+      expect(result.networkMessage).toBe('DIFE: Key resolution failed for key 3006985750');
       expect(result.networkCode).toBeUndefined();
     });
 
@@ -518,11 +510,10 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
       expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
-      expect(result.networkMessage).toContain('DIFE-4000');
+      expect(result.networkMessage).toContain('DIFE');
       expect(result.networkMessage).toContain('Invalid key format');
-      expect(result.networkCode).toBe('DIFE-4000');
     });
 
     it('should handle KeyResolutionException with TypeError in message', async () => {
@@ -535,9 +526,9 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
       expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
-      expect(result.networkMessage).toContain('TypeError');
+      expect(result.networkMessage).toBe('DIFE: Key resolution failed for key 3006985750');
       expect(result.networkCode).toBeUndefined();
     });
 
@@ -551,9 +542,9 @@ describe('TransferUseCase', () => {
 
       const result = await useCase.executeTransfer(mockRequest);
 
-      expect(result.responseCode).toBe(TransferResponseCode.VALIDATION_FAILED);
+      expect(result.responseCode).toBe(TransferResponseCode.ERROR);
       expect(result.message).toBe(TransferMessage.KEY_RESOLUTION_ERROR);
-      expect(result.networkMessage).toContain('Unknown error occurred');
+      expect(result.networkMessage).toBe('DIFE: Key resolution failed');
     });
   });
 });

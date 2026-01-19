@@ -19,8 +19,7 @@
     "timeoutMs": 50000,
     "webhookPollingStartDelayMs": 30000,
     "pollingIntervalMs": 5000,
-    "enablePolling": true,
-    "enableCleanupInterval": true
+    "enablePolling": true
   },
   "molPayer": {
     "identificationType": "CITIZENSHIP_ID",

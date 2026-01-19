@@ -1,15 +1,6 @@
-import { Controller, Post, Body, Res, UseInterceptors } from '@nestjs/common';
+import { Controller, Post, Body, Res } from '@nestjs/common';
 import { Response } from 'express';
-import {
-  ThLogger,
-  ThLoggerService,
-  ThLoggerComponent,
-  ThTraceEvent,
-  ThEventTypeBuilder,
-  ThStandardResponse,
-  ThHttpRequestTracingInterceptor,
-  ThHttpResponseTracingInterceptor
-} from 'themis';
+import { ThLogger, ThLoggerService, ThLoggerComponent, ThTraceEvent, ThEventTypeBuilder } from 'themis';
 
 import { TransferUseCase } from '@core/usecase';
 
@@ -18,7 +9,6 @@ import { TransferRequestDto } from '../dto';
 import { HttpStatusMapper } from './util/http-status.mapper';
 
 @Controller('transfer')
-@UseInterceptors(ThHttpRequestTracingInterceptor, ThHttpResponseTracingInterceptor)
 export class TransferController {
   private readonly logger: ThLogger;
 
@@ -35,10 +25,17 @@ export class TransferController {
     tags: ['transfer', 'payment']
   })
   async transfer(@Body() request: TransferRequestDto, @Res() res: Response): Promise<Response> {
+    const eventId = request.transactionId;
+    const traceId = request.transactionId;
+    const correlationId = request.transactionId;
+
     this.logger.log('CHARON Request', {
       method: 'POST',
-      transactionId: request.transaction.id,
-      amount: request.transaction.amount.total,
+      transactionId: request.transactionId,
+      eventId,
+      traceId,
+      correlationId,
+      amount: request.transaction.amount.value,
       currency: request.transaction.amount.currency,
       requestBody: JSON.stringify(request, null, 2)
     });
@@ -47,26 +44,19 @@ export class TransferController {
 
     const httpStatus = HttpStatusMapper.mapResponseCodeToHttpStatus(responseDto.responseCode);
     const endToEndId = (responseDto.additionalData as Record<string, string> | undefined)?.END_TO_END;
-
-    const { responseCode, message, ...rest } = responseDto;
-
-    const standardResponse: ThStandardResponse<typeof rest & { state: string }> = {
-      code: httpStatus,
-      message,
-      data: {
-        state: responseCode,
-        ...rest
-      }
-    };
+    const finalCorrelationId = endToEndId || responseDto.transactionId;
 
     this.logger.log('CHARON Response', {
       status: httpStatus,
       transactionId: responseDto.transactionId,
+      eventId,
+      traceId,
+      correlationId: finalCorrelationId,
       endToEndId,
-      state: responseDto.responseCode,
-      responseBody: JSON.stringify(standardResponse, null, 2)
+      responseCode: responseDto.responseCode,
+      responseBody: JSON.stringify(responseDto, null, 2)
     });
 
-    return res.status(httpStatus).json(standardResponse);
+    return res.status(httpStatus).json(responseDto);
   }
 }

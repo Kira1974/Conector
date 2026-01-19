@@ -276,6 +276,8 @@ describe('ConfirmationUseCase', () => {
         expect.objectContaining({
           notificationId: 'NOTIF-001',
           source: 'credibanco',
+          correlationId: '20251120135790864CRB001763694229136',
+          eventId: '20251120135790864CRB001763694229136',
           executionId: '202511200BANKCRB00029a85dc48b',
           eventName: 'settlement.result'
         })

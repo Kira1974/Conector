@@ -2,20 +2,20 @@ import { TransferRequestDto } from '../../infrastructure/entrypoint/dto/transfer
 import { TransferResponseDto, TransferResponseCode } from '../../infrastructure/entrypoint/dto/transfer-response.dto';
 import { TransferMessage } from '../constant';
 
-import { validateKeyFormat } from './key-format-validator.util';
 import { calculateKeyType } from './key-type.util';
+import { validateKeyFormat } from './key-format-validator.util';
+
 export function validateKeyFormatBeforeResolution(request: TransferRequestDto): TransferResponseDto | null {
-  const key = request.transaction.payee.account.detail?.['KEY_VALUE'] as string | undefined;
-
+  const key = request.transactionParties.payee.accountInfo.value;
   const keyType = calculateKeyType(key);
-  const validationResult = validateKeyFormat(key, keyType);
+  const validation = validateKeyFormat(key, keyType);
 
-  if (!validationResult.isValid) {
+  if (!validation.isValid) {
     return {
-      transactionId: request.transaction.id,
+      transactionId: request.transactionId,
       responseCode: TransferResponseCode.VALIDATION_FAILED,
       message: TransferMessage.INVALID_KEY_FORMAT,
-      networkMessage: validationResult.errorMessage,
+      networkMessage: undefined,
       networkCode: undefined
     };
   }
