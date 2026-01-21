@@ -11,6 +11,7 @@ export declare class AccountQueryUseCase {
     private processAccountQuery;
     private buildSuccessResponse;
     private buildErrorResponse;
+    private buildMinimalErrorData;
     private determineErrorState;
     private buildErrorResponseByNetworkCode;
     private handleError;

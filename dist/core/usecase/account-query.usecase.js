@@ -27,6 +27,17 @@ let AccountQueryUseCase = AccountQueryUseCase_1 = class AccountQueryUseCase {
     async execute(key) {
         const keyType = (0, util_1.calculateKeyType)(key);
         const correlationId = (0, util_1.generateCorrelationId)();
+        const keyValidation = (0, util_1.validateKeyFormat)(key, keyType);
+        if (!keyValidation.isValid) {
+            this.logger.warn('Key format validation failed (adapter)', {
+                key: (0, util_1.obfuscateKey)(key),
+                keyType,
+                error: keyValidation.errorMessage
+            });
+            return {
+                response: themis_1.ThResponseBuilder.badRequest(constant_1.TransferMessage.INVALID_KEY_FORMAT, this.buildMinimalErrorData(key, keyType, constant_1.AccountQueryState.VALIDATION_FAILED))
+            };
+        }
         try {
             const request = {
                 correlationId,
@@ -170,26 +181,52 @@ let AccountQueryUseCase = AccountQueryUseCase_1 = class AccountQueryUseCase {
         const transferMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
         const formattedNetworkMessage = networkCode
             ? error_message_mapper_1.ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
-            : networkMessage;
+            : undefined;
         const errorState = this.determineErrorState(networkCode);
+        const detail = {
+            KEY_VALUE: key,
+            BREB_KEY_TYPE: keyType
+        };
+        if (difeResponse?.execution_id) {
+            detail.BREB_DIFE_EXECUTION_ID = difeResponse.execution_id;
+        }
+        if (difeResponse?.correlation_id) {
+            detail.BREB_DIFE_CORRELATION_ID = difeResponse.correlation_id;
+        }
+        if (difeResponse?.trace_id) {
+            detail.BREB_DIFE_TRACE_ID = difeResponse.trace_id;
+        }
         const data = {
-            externalTransactionId: difeResponse?.execution_id || '',
-            state: errorState,
-            ...(networkCode && { networkCode }),
-            ...(formattedNetworkMessage && { networkMessage: formattedNetworkMessage }),
+            state: errorState
+        };
+        if (difeResponse?.execution_id) {
+            data.externalTransactionId = difeResponse.execution_id;
+        }
+        if (networkCode) {
+            data.networkCode = networkCode;
+        }
+        if (formattedNetworkMessage) {
+            data.networkMessage = formattedNetworkMessage;
+        }
+        data.userData = {
+            account: {
+                detail
+            }
+        };
+        return this.buildErrorResponseByNetworkCode(networkCode, transferMessage, data);
+    }
+    buildMinimalErrorData(key, keyType, state) {
+        return {
+            state,
             userData: {
                 account: {
                     detail: {
                         KEY_VALUE: key,
-                        BREB_DIFE_EXECUTION_ID: difeResponse?.execution_id || '',
-                        BREB_DIFE_CORRELATION_ID: difeResponse?.correlation_id || '',
-                        BREB_DIFE_TRACE_ID: difeResponse?.trace_id || '',
                         BREB_KEY_TYPE: keyType
                     }
                 }
             }
         };
-        return this.buildErrorResponseByNetworkCode(networkCode, transferMessage, data);
     }
     determineErrorState(networkCode) {
         if (!networkCode) {
@@ -230,6 +267,21 @@ let AccountQueryUseCase = AccountQueryUseCase_1 = class AccountQueryUseCase {
         });
         if (error instanceof custom_exceptions_1.KeyResolutionException) {
             return this.buildErrorResponse(key, keyType, error.message);
+        }
+        if (error instanceof custom_exceptions_1.ExternalServiceException || error instanceof custom_exceptions_1.TimeoutException) {
+            const data = {
+                state: constant_1.AccountQueryState.PROVIDER_ERROR,
+                networkMessage: errorMessage,
+                userData: {
+                    account: {
+                        detail: {
+                            KEY_VALUE: key,
+                            BREB_KEY_TYPE: keyType
+                        }
+                    }
+                }
+            };
+            return themis_1.ThResponseBuilder.externalServiceError(constant_1.TransferMessage.KEY_RESOLUTION_NETWORK_ERROR, data);
         }
         return this.buildErrorResponse(key, keyType, errorMessage);
     }

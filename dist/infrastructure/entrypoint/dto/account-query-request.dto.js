@@ -15,7 +15,7 @@ const class_transformer_1 = require("class-transformer");
 class AccountDto {
 }
 __decorate([
-    (0, class_validator_1.IsNotEmpty)({ message: 'Account type cannot be empty' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)({ message: 'Account type must be a string' }),
     __metadata("design:type", String)
 ], AccountDto.prototype, "type", void 0);

@@ -55,8 +55,32 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
         const errorDetails = this.getErrorDetails(exception, correlationId);
         this.logError(exception, errorDetails, request, correlationId);
         const state = this.mapToAccountQueryState(errorDetails.errorCode);
-        const standardResponse = this.buildThStandardResponse(errorDetails, state, correlationId);
+        const standardResponse = this.buildResponseByState(errorDetails, state);
         response.status(errorDetails.httpStatus).json(standardResponse);
+    }
+    buildResponseByState(errorDetails, state) {
+        const baseData = {
+            state,
+            userData: {
+                account: {
+                    detail: {}
+                }
+            }
+        };
+        switch (state) {
+            case constant_1.AccountQueryState.VALIDATION_FAILED:
+                return themis_1.ThResponseBuilder.badRequest(errorDetails.message, baseData);
+            case constant_1.AccountQueryState.REJECTED_BY_PROVIDER:
+                baseData.networkMessage = errorDetails.message;
+                return themis_1.ThResponseBuilder.validationError(baseData, errorDetails.message);
+            case constant_1.AccountQueryState.PROVIDER_ERROR:
+                baseData.networkMessage = errorDetails.message;
+                return themis_1.ThResponseBuilder.externalServiceError(errorDetails.message, baseData);
+            case constant_1.AccountQueryState.ERROR:
+            default:
+                baseData.networkMessage = errorDetails.message;
+                return themis_1.ThResponseBuilder.internalError(errorDetails.message, baseData);
+        }
     }
     getErrorDetails(exception, correlationId) {
         if (exception instanceof common_1.HttpException) {
@@ -277,29 +301,6 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
             case 'INTERNAL_ERROR':
             default:
                 return constant_1.AccountQueryState.ERROR;
-        }
-    }
-    buildThStandardResponse(errorDetails, state, correlationId) {
-        const data = {
-            externalTransactionId: correlationId || '',
-            state,
-            networkMessage: errorDetails.message,
-            userData: {
-                account: {
-                    detail: {}
-                }
-            }
-        };
-        switch (state) {
-            case constant_1.AccountQueryState.VALIDATION_FAILED:
-                return themis_1.ThResponseBuilder.badRequest(errorDetails.message, data);
-            case constant_1.AccountQueryState.REJECTED_BY_PROVIDER:
-                return themis_1.ThResponseBuilder.validationError(data, errorDetails.message);
-            case constant_1.AccountQueryState.PROVIDER_ERROR:
-                return themis_1.ThResponseBuilder.externalServiceError(errorDetails.message, data);
-            case constant_1.AccountQueryState.ERROR:
-            default:
-                return themis_1.ThResponseBuilder.internalError(errorDetails.message, data);
         }
     }
 };

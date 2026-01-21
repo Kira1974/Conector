@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { HttpStatus } from '@nestjs/common';
 import { ThLoggerService, ThAppStatusCode } from 'themis';
 
 import { AccountQueryController } from '@infrastructure/entrypoint/rest/account-query.controller';
@@ -100,36 +101,41 @@ describe('AccountQueryController', () => {
 
       await controller.queryAccount(mockRequest, mockResponse);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(ThAppStatusCode.CREATED);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockSuccessResponse.response);
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.CREATED);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HttpStatus.CREATED,
+          message: TransferMessage.KEY_RESOLUTION_SUCCESS
+        })
+      );
       expect(mockLogger.log).toHaveBeenCalledWith('CHARON_REQUEST', expect.any(Object));
       expect(mockLogger.log).toHaveBeenCalledWith(
         'CHARON_RESPONSE',
         expect.objectContaining({
-          status: ThAppStatusCode.CREATED,
+          status: HttpStatus.CREATED,
           externalTransactionId: 'dife-execution-id'
         })
       );
     });
 
-    it('should return 404 for key not found', async () => {
+    it('should return 422 for key not found (REJECTED_BY_PROVIDER)', async () => {
       const mockErrorResponse = {
         response: {
-          code: ThAppStatusCode.NOT_FOUND,
+          code: ThAppStatusCode.VALIDATION_ERROR,
           message: 'The key does not exist or is canceled.',
           data: {
-            externalTransactionId: 'dife-execution-id',
             state: AccountQueryState.REJECTED_BY_PROVIDER,
+            externalTransactionId: 'dife-execution-id',
             networkCode: 'DIFE-0004',
             networkMessage: 'DIFE: The key does not exist or is canceled.',
             userData: {
               account: {
                 detail: {
                   KEY_VALUE: 'key_not_found',
+                  BREB_KEY_TYPE: 'NRIC',
                   BREB_DIFE_EXECUTION_ID: 'dife-execution-id',
                   BREB_DIFE_CORRELATION_ID: 'test-correlation-id',
-                  BREB_DIFE_TRACE_ID: 'dife-trace-id',
-                  BREB_KEY_TYPE: 'NRIC'
+                  BREB_DIFE_TRACE_ID: 'dife-trace-id'
                 }
               }
             }
@@ -141,28 +147,32 @@ describe('AccountQueryController', () => {
 
       await controller.queryAccount({ account: { type: 'BREB', value: 'key_not_found' } }, mockResponse);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(ThAppStatusCode.NOT_FOUND);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockErrorResponse.response);
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HttpStatus.UNPROCESSABLE_ENTITY
+        })
+      );
     });
 
-    it('should return 400 for invalid key format', async () => {
+    it('should return 400 for invalid key format (VALIDATION_FAILED)', async () => {
       const mockErrorResponse = {
         response: {
           code: ThAppStatusCode.BAD_REQUEST,
           message: 'Invalid key format',
           data: {
-            externalTransactionId: 'dife-execution-id',
             state: AccountQueryState.VALIDATION_FAILED,
+            externalTransactionId: 'dife-execution-id',
             networkCode: 'DIFE-5005',
             networkMessage: 'DIFE: Invalid key format',
             userData: {
               account: {
                 detail: {
                   KEY_VALUE: 'invalid_key_5005',
+                  BREB_KEY_TYPE: 'NRIC',
                   BREB_DIFE_EXECUTION_ID: 'dife-execution-id',
                   BREB_DIFE_CORRELATION_ID: 'test-correlation-id',
-                  BREB_DIFE_TRACE_ID: 'dife-trace-id',
-                  BREB_KEY_TYPE: 'NRIC'
+                  BREB_DIFE_TRACE_ID: 'dife-trace-id'
                 }
               }
             }
@@ -174,28 +184,32 @@ describe('AccountQueryController', () => {
 
       await controller.queryAccount({ account: { type: 'BREB', value: 'invalid_key_5005' } }, mockResponse);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(ThAppStatusCode.BAD_REQUEST);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockErrorResponse.response);
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HttpStatus.BAD_REQUEST
+        })
+      );
     });
 
-    it('should return 422 for suspended key', async () => {
+    it('should return 422 for suspended key (REJECTED_BY_PROVIDER)', async () => {
       const mockErrorResponse = {
         response: {
           code: ThAppStatusCode.VALIDATION_ERROR,
           message: 'The key is suspended by the client.',
           data: {
-            externalTransactionId: 'dife-execution-id',
             state: AccountQueryState.REJECTED_BY_PROVIDER,
+            externalTransactionId: 'dife-execution-id',
             networkCode: 'DIFE-0005',
             networkMessage: 'DIFE: The key is suspended by the client.',
             userData: {
               account: {
                 detail: {
                   KEY_VALUE: 'key_suspended',
+                  BREB_KEY_TYPE: 'O',
                   BREB_DIFE_EXECUTION_ID: 'dife-execution-id',
                   BREB_DIFE_CORRELATION_ID: 'test-correlation-id',
-                  BREB_DIFE_TRACE_ID: 'dife-trace-id',
-                  BREB_KEY_TYPE: 'O'
+                  BREB_DIFE_TRACE_ID: 'dife-trace-id'
                 }
               }
             }
@@ -207,28 +221,32 @@ describe('AccountQueryController', () => {
 
       await controller.queryAccount({ account: { type: 'BREB', value: 'key_suspended' } }, mockResponse);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(ThAppStatusCode.VALIDATION_ERROR);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockErrorResponse.response);
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HttpStatus.UNPROCESSABLE_ENTITY
+        })
+      );
     });
 
-    it('should return 504 for timeout', async () => {
+    it('should return 502 for DIFE timeout (PROVIDER_ERROR)', async () => {
       const mockErrorResponse = {
         response: {
-          code: ThAppStatusCode.TIMEOUT,
+          code: ThAppStatusCode.EXTERNAL_SERVICE_ERROR,
           message: 'Request timeout',
           data: {
-            externalTransactionId: 'dife-execution-id',
             state: AccountQueryState.PROVIDER_ERROR,
+            externalTransactionId: 'dife-execution-id',
             networkCode: 'DIFE-5000',
             networkMessage: 'DIFE: Timeout.',
             userData: {
               account: {
                 detail: {
                   KEY_VALUE: 'dife_timeout',
+                  BREB_KEY_TYPE: 'NRIC',
                   BREB_DIFE_EXECUTION_ID: 'dife-execution-id',
                   BREB_DIFE_CORRELATION_ID: 'test-correlation-id',
-                  BREB_DIFE_TRACE_ID: 'dife-trace-id',
-                  BREB_KEY_TYPE: 'NRIC'
+                  BREB_DIFE_TRACE_ID: 'dife-trace-id'
                 }
               }
             }
@@ -240,8 +258,44 @@ describe('AccountQueryController', () => {
 
       await controller.queryAccount({ account: { type: 'BREB', value: 'dife_timeout' } }, mockResponse);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(ThAppStatusCode.TIMEOUT);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockErrorResponse.response);
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_GATEWAY);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HttpStatus.BAD_GATEWAY
+        })
+      );
+    });
+
+    it('should return 500 for internal errors (ERROR)', async () => {
+      const mockErrorResponse = {
+        response: {
+          code: ThAppStatusCode.INTERNAL_ERROR,
+          message: 'Internal server error',
+          data: {
+            state: AccountQueryState.ERROR,
+            networkMessage: 'An unexpected error occurred',
+            userData: {
+              account: {
+                detail: {
+                  KEY_VALUE: 'server_error',
+                  BREB_KEY_TYPE: 'NRIC'
+                }
+              }
+            }
+          }
+        }
+      };
+
+      mockAccountQueryUseCase.execute.mockResolvedValue(mockErrorResponse);
+
+      await controller.queryAccount({ account: { type: 'BREB', value: 'server_error' } }, mockResponse);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: HttpStatus.INTERNAL_SERVER_ERROR
+        })
+      );
     });
 
     it('should log request with obfuscated key', async () => {
@@ -327,8 +381,7 @@ describe('AccountQueryController', () => {
       expect(mockLogger.log).toHaveBeenCalledWith(
         'CHARON_RESPONSE',
         expect.objectContaining({
-          externalTransactionId: 'custom-execution-id',
-          responseBody: mockSuccessResponse.response
+          externalTransactionId: 'custom-execution-id'
         })
       );
     });

@@ -17,6 +17,7 @@ import { calculateKeyType, obfuscateKey } from '@core/util';
 import { AccountQueryRequestDto } from '../dto';
 
 import { ApiAccountQueryDocs } from './decorators/api-account-query-docs.decorator';
+import { HttpStatusMapper } from './util/http-status.mapper';
 
 @ApiTags('Account Query')
 @Controller('account')
@@ -48,12 +49,15 @@ export class AccountQueryController {
     const result = await this.accountQueryUseCase.execute(account.value);
     const { response } = result;
 
+    const httpStatus = HttpStatusMapper.mapThAppStatusCodeToHttpStatus(response.code);
+    const finalResponse = { ...response, code: httpStatus };
+
     this.logger.log('CHARON_RESPONSE', {
-      status: response.code,
+      status: httpStatus,
       externalTransactionId: response.data?.externalTransactionId,
-      responseBody: response
+      responseBody: finalResponse
     });
 
-    return res.status(response.code).json(response);
+    return res.status(httpStatus).json(finalResponse);
   }
 }

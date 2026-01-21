@@ -1,5 +1,5 @@
 declare class AccountDto {
-    type: string;
+    type?: string;
     value: string;
 }
 export declare class AccountQueryRequestDto {

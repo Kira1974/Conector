@@ -4,7 +4,7 @@ export declare class AccountQueryExamples {
         successfulQuery: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
                     externalTransactionId: string;
@@ -36,21 +36,21 @@ export declare class AccountQueryExamples {
         invalidKeyFormat: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -60,20 +60,38 @@ export declare class AccountQueryExamples {
         invalidKeyFormatDife4000: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        adapterValidationError: {
+            summary: string;
+            value: {
+                code: number;
+                message: string;
+                data: {
+                    state: AccountQueryState;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
                                 BREB_KEY_TYPE: string;
                             };
                         };
@@ -86,21 +104,21 @@ export declare class AccountQueryExamples {
         keyNotFound: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -110,21 +128,21 @@ export declare class AccountQueryExamples {
         keySuspendedByClient: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -134,21 +152,21 @@ export declare class AccountQueryExamples {
         keySuspendedByParticipant: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -158,21 +176,21 @@ export declare class AccountQueryExamples {
         keyCanceled: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -184,21 +202,21 @@ export declare class AccountQueryExamples {
         difeTimeout: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -208,21 +226,21 @@ export declare class AccountQueryExamples {
         difeUnexpectedError: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -232,21 +250,21 @@ export declare class AccountQueryExamples {
         diceApiError: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -256,21 +274,21 @@ export declare class AccountQueryExamples {
         participantNotFound: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
-                    externalTransactionId: string;
                     state: AccountQueryState;
+                    externalTransactionId: string;
                     networkCode: string;
                     networkMessage: string;
                     userData: {
                         account: {
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
                                 BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_KEY_TYPE: string;
                             };
                         };
                     };
@@ -282,7 +300,7 @@ export declare class AccountQueryExamples {
         charonInternalError: {
             summary: string;
             value: {
-                code: string;
+                code: number;
                 message: string;
                 data: {
                     state: AccountQueryState;

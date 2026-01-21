@@ -1,16 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ThLogger,
-  ThLoggerService,
-  ThLoggerComponent,
-  ThResponseBuilder,
-  ThStandardResponse
-} from 'themis';
+import { ThLogger, ThLoggerService, ThLoggerComponent, ThResponseBuilder, ThStandardResponse } from 'themis';
 
 import { IDifeProvider } from '@core/provider';
 import { KeyResolutionRequest, KeyResolutionResponse } from '@core/model';
-import { calculateKeyType, generateCorrelationId } from '@core/util';
-import { KeyResolutionException } from '@core/exception/custom.exceptions';
+import { calculateKeyType, generateCorrelationId, obfuscateKey, validateKeyFormat } from '@core/util';
+import { KeyResolutionException, ExternalServiceException, TimeoutException } from '@core/exception/custom.exceptions';
 import { ErrorMessageMapper, NetworkErrorInfo } from '@core/util/error-message.mapper';
 import { DifeKeyResponseDto } from '@infrastructure/provider/http-clients/dto';
 import { TransferMessage, AccountQueryState, DifeErrorCodes } from '@core/constant';
@@ -31,6 +25,22 @@ export class AccountQueryUseCase {
     const keyType = calculateKeyType(key);
     const correlationId = generateCorrelationId();
 
+    const keyValidation = validateKeyFormat(key, keyType);
+    if (!keyValidation.isValid) {
+      this.logger.warn('Key format validation failed (adapter)', {
+        key: obfuscateKey(key),
+        keyType,
+        error: keyValidation.errorMessage
+      });
+
+      return {
+        response: ThResponseBuilder.badRequest(
+          TransferMessage.INVALID_KEY_FORMAT,
+          this.buildMinimalErrorData(key, keyType, AccountQueryState.VALIDATION_FAILED)
+        )
+      };
+    }
+
     try {
       const request: KeyResolutionRequest = {
         correlationId,
@@ -45,7 +55,6 @@ export class AccountQueryUseCase {
       return { response: responseDto };
     } catch (error: unknown) {
       const errorResponse = this.handleError(error, key, keyType, correlationId);
-
       return { response: errorResponse };
     }
   }
@@ -213,29 +222,60 @@ export class AccountQueryUseCase {
     const transferMessage = ErrorMessageMapper.mapToMessage(errorInfo);
     const formattedNetworkMessage = networkCode
       ? ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
-      : networkMessage;
+      : undefined;
 
     const errorState = this.determineErrorState(networkCode);
 
-    const data: AccountQueryDataDto = {
-      externalTransactionId: difeResponse?.execution_id || '',
-      state: errorState,
-      ...(networkCode && { networkCode }),
-      ...(formattedNetworkMessage && { networkMessage: formattedNetworkMessage }),
+    const detail: any = {
+      KEY_VALUE: key,
+      BREB_KEY_TYPE: keyType
+    };
+
+    if (difeResponse?.execution_id) {
+      detail.BREB_DIFE_EXECUTION_ID = difeResponse.execution_id;
+    }
+    if (difeResponse?.correlation_id) {
+      detail.BREB_DIFE_CORRELATION_ID = difeResponse.correlation_id;
+    }
+    if (difeResponse?.trace_id) {
+      detail.BREB_DIFE_TRACE_ID = difeResponse.trace_id;
+    }
+
+    const data: any = {
+      state: errorState
+    };
+
+    if (difeResponse?.execution_id) {
+      data.externalTransactionId = difeResponse.execution_id;
+    }
+    if (networkCode) {
+      data.networkCode = networkCode;
+    }
+    if (formattedNetworkMessage) {
+      data.networkMessage = formattedNetworkMessage;
+    }
+
+    data.userData = {
+      account: {
+        detail
+      }
+    };
+
+    return this.buildErrorResponseByNetworkCode(networkCode, transferMessage, data);
+  }
+
+  private buildMinimalErrorData(key: string, keyType: string, state: AccountQueryState): any {
+    return {
+      state,
       userData: {
         account: {
           detail: {
             KEY_VALUE: key,
-            BREB_DIFE_EXECUTION_ID: difeResponse?.execution_id || '',
-            BREB_DIFE_CORRELATION_ID: difeResponse?.correlation_id || '',
-            BREB_DIFE_TRACE_ID: difeResponse?.trace_id || '',
             BREB_KEY_TYPE: keyType
           }
         }
       }
     };
-
-    return this.buildErrorResponseByNetworkCode(networkCode, transferMessage, data);
   }
 
   private determineErrorState(networkCode: string | undefined): AccountQueryState {
@@ -298,6 +338,23 @@ export class AccountQueryUseCase {
 
     if (error instanceof KeyResolutionException) {
       return this.buildErrorResponse(key, keyType, error.message);
+    }
+
+    if (error instanceof ExternalServiceException || error instanceof TimeoutException) {
+      const data: any = {
+        state: AccountQueryState.PROVIDER_ERROR,
+        networkMessage: errorMessage,
+        userData: {
+          account: {
+            detail: {
+              KEY_VALUE: key,
+              BREB_KEY_TYPE: keyType
+            }
+          }
+        }
+      };
+
+      return ThResponseBuilder.externalServiceError(TransferMessage.KEY_RESOLUTION_NETWORK_ERROR, data);
     }
 
     return this.buildErrorResponse(key, keyType, errorMessage);

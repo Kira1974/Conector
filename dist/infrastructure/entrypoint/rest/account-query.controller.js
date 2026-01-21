@@ -21,6 +21,7 @@ const usecase_1 = require("../../../core/usecase");
 const util_1 = require("../../../core/util");
 const dto_1 = require("../dto");
 const api_account_query_docs_decorator_1 = require("./decorators/api-account-query-docs.decorator");
+const http_status_mapper_1 = require("./util/http-status.mapper");
 let AccountQueryController = AccountQueryController_1 = class AccountQueryController {
     constructor(accountQueryUseCase, loggerService) {
         this.accountQueryUseCase = accountQueryUseCase;
@@ -36,12 +37,14 @@ let AccountQueryController = AccountQueryController_1 = class AccountQueryContro
         });
         const result = await this.accountQueryUseCase.execute(account.value);
         const { response } = result;
+        const httpStatus = http_status_mapper_1.HttpStatusMapper.mapThAppStatusCodeToHttpStatus(response.code);
+        const finalResponse = { ...response, code: httpStatus };
         this.logger.log('CHARON_RESPONSE', {
-            status: response.code,
+            status: httpStatus,
             externalTransactionId: response.data?.externalTransactionId,
-            responseBody: response
+            responseBody: finalResponse
         });
-        return res.status(response.code).json(response);
+        return res.status(httpStatus).json(finalResponse);
     }
 };
 exports.AccountQueryController = AccountQueryController;

@@ -5,6 +5,7 @@ export declare class GlobalExceptionFilter implements ExceptionFilter {
     private readonly logger;
     constructor(loggerService: ThLoggerService);
     catch(exception: unknown, host: ArgumentsHost): void;
+    private buildResponseByState;
     private getErrorDetails;
     private logError;
     private generateEventId;
@@ -17,5 +18,4 @@ export declare class GlobalExceptionFilter implements ExceptionFilter {
     private isTimeoutError;
     private isNetworkError;
     private mapToAccountQueryState;
-    private buildThStandardResponse;
 }

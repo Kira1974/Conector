@@ -1,9 +1,13 @@
-{"level":"info","message":"[mb:2525] mountebank v2.9.3-sec now taking orders - point your browser to http://localhost:2525/ for help","timestamp":"2026-01-21T16:14:50.332Z"}
-{"level":"info","message":"[mb:2525] GET /imposters","timestamp":"2026-01-21T16:14:50.357Z"}
-{"level":"info","message":"[mb:2525] DELETE /imposters","timestamp":"2026-01-21T16:14:50.386Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-21T16:14:50.393Z"}
-{"level":"info","message":"[http:4545] Open for business...","timestamp":"2026-01-21T16:14:50.399Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-21T16:14:50.405Z"}
-{"level":"info","message":"[http:4546] Open for business...","timestamp":"2026-01-21T16:14:50.414Z"}
-{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-21T16:14:50.419Z"}
-{"level":"info","message":"[http:4547] Open for business...","timestamp":"2026-01-21T16:14:50.425Z"}
+{"level":"info","message":"[mb:2525] mountebank v2.9.3-sec now taking orders - point your browser to http://localhost:2525/ for help","timestamp":"2026-01-21T17:41:32.249Z"}
+{"level":"info","message":"[mb:2525] GET /imposters","timestamp":"2026-01-21T17:41:32.259Z"}
+{"level":"info","message":"[mb:2525] DELETE /imposters","timestamp":"2026-01-21T17:41:32.271Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-21T17:41:32.275Z"}
+{"level":"info","message":"[http:4545] Open for business...","timestamp":"2026-01-21T17:41:32.277Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-21T17:41:32.280Z"}
+{"level":"info","message":"[http:4546] Open for business...","timestamp":"2026-01-21T17:41:32.285Z"}
+{"level":"info","message":"[mb:2525] POST /imposters","timestamp":"2026-01-21T17:41:32.288Z"}
+{"level":"info","message":"[http:4547] Open for business...","timestamp":"2026-01-21T17:41:32.291Z"}
+{"level":"info","message":"[http:4545] ::ffff:127.0.0.1:55790 => POST /token?grant_type=client_credentials","timestamp":"2026-01-21T17:42:46.101Z"}
+{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:49622 => POST /v1/key/resolve","timestamp":"2026-01-21T17:42:46.121Z"}
+{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:39630 => POST /v1/key/resolve","timestamp":"2026-01-21T17:42:54.397Z"}
+{"level":"info","message":"[http:4546] ::ffff:127.0.0.1:37970 => POST /v1/key/resolve","timestamp":"2026-01-21T17:43:00.260Z"}

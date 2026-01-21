@@ -64,9 +64,35 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     this.logError(exception, errorDetails, request, correlationId);
 
     const state = this.mapToAccountQueryState(errorDetails.errorCode);
-    const standardResponse = this.buildThStandardResponse(errorDetails, state, correlationId);
+    const standardResponse = this.buildResponseByState(errorDetails, state);
 
     response.status(errorDetails.httpStatus).json(standardResponse);
+  }
+
+  private buildResponseByState(errorDetails: ErrorDetails, state: AccountQueryState): Record<string, any> {
+    const baseData: any = {
+      state,
+      userData: {
+        account: {
+          detail: {}
+        }
+      }
+    };
+
+    switch (state) {
+      case AccountQueryState.VALIDATION_FAILED:
+        return ThResponseBuilder.badRequest(errorDetails.message, baseData);
+      case AccountQueryState.REJECTED_BY_PROVIDER:
+        baseData.networkMessage = errorDetails.message;
+        return ThResponseBuilder.validationError(baseData, errorDetails.message);
+      case AccountQueryState.PROVIDER_ERROR:
+        baseData.networkMessage = errorDetails.message;
+        return ThResponseBuilder.externalServiceError(errorDetails.message, baseData);
+      case AccountQueryState.ERROR:
+      default:
+        baseData.networkMessage = errorDetails.message;
+        return ThResponseBuilder.internalError(errorDetails.message, baseData);
+    }
   }
 
   private getErrorDetails(exception: unknown, correlationId?: string): ErrorDetails {
@@ -342,35 +368,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       case 'INTERNAL_ERROR':
       default:
         return AccountQueryState.ERROR;
-    }
-  }
-
-  private buildThStandardResponse(
-    errorDetails: ErrorDetails,
-    state: AccountQueryState,
-    correlationId?: string
-  ): Record<string, any> {
-    const data = {
-      externalTransactionId: correlationId || '',
-      state,
-      networkMessage: errorDetails.message,
-      userData: {
-        account: {
-          detail: {}
-        }
-      }
-    };
-
-    switch (state) {
-      case AccountQueryState.VALIDATION_FAILED:
-        return ThResponseBuilder.badRequest(errorDetails.message, data);
-      case AccountQueryState.REJECTED_BY_PROVIDER:
-        return ThResponseBuilder.validationError(data, errorDetails.message);
-      case AccountQueryState.PROVIDER_ERROR:
-        return ThResponseBuilder.externalServiceError(errorDetails.message, data);
-      case AccountQueryState.ERROR:
-      default:
-        return ThResponseBuilder.internalError(errorDetails.message, data);
     }
   }
 }

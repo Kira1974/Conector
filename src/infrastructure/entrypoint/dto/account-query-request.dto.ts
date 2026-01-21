@@ -1,10 +1,10 @@
-import { IsNotEmpty, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength, MinLength, ValidateNested, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class AccountDto {
-  @IsNotEmpty({ message: 'Account type cannot be empty' })
+  @IsOptional()
   @IsString({ message: 'Account type must be a string' })
-  type: string;
+  type?: string;
 
   @IsNotEmpty({ message: 'Account value cannot be empty' })
   @IsString({ message: 'Account value must be a string' })
