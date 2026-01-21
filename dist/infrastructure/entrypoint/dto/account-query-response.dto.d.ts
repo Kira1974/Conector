@@ -1,30 +1,32 @@
+import { ThStandardResponse } from 'themis';
 export declare class AccountDetailDto {
     KEY_VALUE: string;
+    BREB_DIFE_EXECUTION_ID: string;
     BREB_DIFE_CORRELATION_ID: string;
     BREB_DIFE_TRACE_ID: string;
-    BREB_DIFE_EXECUTION_ID?: string;
     BREB_KEY_TYPE: string;
-    BREB_PARTICIPANT_NIT: string;
-    BREB_PARTICIPANT_SPBVI: string;
+    BREB_PARTICIPANT_NIT?: string;
+    BREB_PARTICIPANT_SPBVI?: string;
 }
-export declare class AccountInfoDto {
-    type: string;
-    number: string;
+export declare class AccountDataDto {
+    type?: string;
+    number?: string;
     detail: AccountDetailDto;
 }
 export declare class UserDataDto {
-    name: string;
-    personType: string;
-    documentType: string;
-    documentNumber: string;
-    account: AccountInfoDto;
+    name?: string;
+    personType?: string;
+    documentType?: string;
+    documentNumber?: string;
+    account: AccountDataDto;
 }
-export declare class AccountQuerySuccessDataDto {
+export declare class AccountQueryDataDto {
     externalTransactionId: string;
     state: string;
-    userData: UserDataDto;
-}
-export declare class AccountQueryErrorDataDto {
     networkCode?: string;
     networkMessage?: string;
+    userData: UserDataDto;
+}
+export interface AccountQueryResult {
+    response: ThStandardResponse<AccountQueryDataDto>;
 }

@@ -32,7 +32,8 @@ describe('PendingTransferService', () => {
       getTransferTimeout: jest.fn().mockReturnValue(50000),
       getWebhookPollingStartDelay: jest.fn().mockReturnValue(30000),
       getPollingInterval: jest.fn().mockReturnValue(5000),
-      isPollingEnabled: jest.fn().mockReturnValue(true)
+      isPollingEnabled: jest.fn().mockReturnValue(true),
+      isCleanupIntervalEnabled: jest.fn().mockReturnValue(false)
     } as unknown as jest.Mocked<TransferConfigService>;
 
     mockExternalServicesConfig = {
@@ -352,14 +353,16 @@ describe('PendingTransferService', () => {
       jest.useRealTimers();
     });
 
-    it('should initialize cleanup interval in non-test environment', () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
+    it('should initialize cleanup interval when enabled in configuration', () => {
+      const enabledTransferConfig = {
+        ...mockTransferConfig,
+        isCleanupIntervalEnabled: jest.fn().mockReturnValue(true)
+      } as unknown as jest.Mocked<TransferConfigService>;
 
       const prodService = new PendingTransferService(
         mockLoggerService as ThLoggerService,
         mockMolProvider,
-        mockTransferConfig,
+        enabledTransferConfig,
         mockExternalServicesConfig
       );
 
@@ -368,9 +371,6 @@ describe('PendingTransferService', () => {
 
       // Clean up
       prodService.onModuleDestroy();
-
-      // Restore env
-      process.env.NODE_ENV = originalEnv;
     });
   });
 
@@ -467,7 +467,8 @@ describe('PendingTransferService', () => {
         getTransferTimeout: jest.fn().mockReturnValue(30000),
         getWebhookPollingStartDelay: jest.fn().mockReturnValue(30000),
         getPollingInterval: jest.fn().mockReturnValue(5000),
-        isPollingEnabled: jest.fn().mockReturnValue(true)
+        isPollingEnabled: jest.fn().mockReturnValue(true),
+        isCleanupIntervalEnabled: jest.fn().mockReturnValue(false)
       } as unknown as jest.Mocked<TransferConfigService>;
 
       const customService = new PendingTransferService(
@@ -489,7 +490,8 @@ describe('PendingTransferService', () => {
         }),
         getWebhookPollingStartDelay: jest.fn().mockReturnValue(30000),
         getPollingInterval: jest.fn().mockReturnValue(5000),
-        isPollingEnabled: jest.fn().mockReturnValue(true)
+        isPollingEnabled: jest.fn().mockReturnValue(true),
+        isCleanupIntervalEnabled: jest.fn().mockReturnValue(false)
       } as unknown as jest.Mocked<TransferConfigService>;
 
       expect(() => {

@@ -15,42 +15,32 @@ const common_1 = require("@nestjs/common");
 const themis_1 = require("themis");
 const provider_1 = require("../provider");
 const util_1 = require("../util");
-const network_error_extractor_util_1 = require("../util/network-error-extractor.util");
+const custom_exceptions_1 = require("../exception/custom.exceptions");
 const error_message_mapper_1 = require("../util/error-message.mapper");
 const constant_1 = require("../constant");
-const standardized_response_code_mapper_1 = require("../../infrastructure/entrypoint/rest/mappers/standardized-response-code.mapper");
 let AccountQueryUseCase = AccountQueryUseCase_1 = class AccountQueryUseCase {
     constructor(difeProvider, loggerService) {
         this.difeProvider = difeProvider;
         this.loggerService = loggerService;
         this.logger = this.loggerService.getLogger(AccountQueryUseCase_1.name, themis_1.ThLoggerComponent.APPLICATION);
     }
-    async execute(keyValue) {
-        const keyType = (0, util_1.calculateKeyType)(keyValue);
+    async execute(key) {
+        const keyType = (0, util_1.calculateKeyType)(key);
         const correlationId = (0, util_1.generateCorrelationId)();
         try {
             const request = {
                 correlationId,
-                key: keyValue,
+                key,
                 keyType
             };
             const difeResponse = await this.difeProvider.resolveKey(request);
             const keyResolution = this.mapDifeResponseToDomain(difeResponse, correlationId);
-            const { response, httpStatus } = this.processKeyResolution(keyResolution, keyValue, keyType, correlationId);
-            return {
-                response,
-                correlationId,
-                difeExecutionId: difeResponse.execution_id,
-                httpStatus
-            };
+            const responseDto = this.processAccountQuery(keyResolution, difeResponse, key, keyType, correlationId);
+            return { response: responseDto };
         }
         catch (error) {
-            const { response, httpStatus } = this.handleError(error, correlationId);
-            return {
-                response,
-                correlationId,
-                httpStatus
-            };
+            const errorResponse = this.handleError(error, key, keyType, correlationId);
+            return { response: errorResponse };
         }
     }
     mapDifeResponseToDomain(difeResponse, fallbackCorrelationId) {
@@ -102,7 +92,7 @@ let AccountQueryUseCase = AccountQueryUseCase_1 = class AccountQueryUseCase {
             }
         };
     }
-    processKeyResolution(keyResolution, keyValue, keyType, correlationId) {
+    processAccountQuery(keyResolution, difeResponse, key, keyType, correlationId) {
         if (keyResolution.errors && keyResolution.errors.length > 0) {
             const errorMessage = keyResolution.errors.join(', ');
             this.logger.warn('DIFE returned business validation errors', {
@@ -111,96 +101,137 @@ let AccountQueryUseCase = AccountQueryUseCase_1 = class AccountQueryUseCase {
                 errorCount: keyResolution.errors.length,
                 errorCodes: keyResolution.errors
             });
-            return this.buildErrorResponse(errorMessage);
+            return this.buildErrorResponse(key, keyType, errorMessage, difeResponse);
         }
         if (!keyResolution.resolvedKey) {
             this.logger.error('Key resolution failed - incomplete response from DIFE', {
                 correlationId,
                 difeCorrelationId: keyResolution.correlationId || correlationId
             });
-            return this.buildErrorResponse('Key resolution failed');
+            return this.buildErrorResponse(key, keyType, 'Key resolution failed', difeResponse);
         }
         this.logger.log('Key resolved successfully', {
             correlationId,
             difeCorrelationId: keyResolution.correlationId || correlationId,
             difeExecutionId: keyResolution.executionId
         });
-        return this.buildSuccessResponse(keyValue, keyType, keyResolution);
+        return this.buildSuccessResponse(key, keyType, keyResolution, difeResponse);
     }
-    buildSuccessResponse(keyValue, keyType, keyResolution) {
+    buildSuccessResponse(key, keyType, keyResolution, difeResponse) {
         const resolvedKey = keyResolution.resolvedKey;
         const person = resolvedKey.person;
         const paymentMethod = resolvedKey.paymentMethod;
-        const nameParts = [];
-        if (person.firstName)
-            nameParts.push(person.firstName);
-        if (person.secondName)
-            nameParts.push(person.secondName);
-        if (person.lastName)
-            nameParts.push(person.lastName);
-        if (person.secondLastName)
-            nameParts.push(person.secondLastName);
-        const fullName = nameParts.length > 0 ? nameParts.join(' ') : person.legalCompanyName || 'Unknown';
-        const accountDetail = {
-            KEY_VALUE: keyValue,
-            BREB_DIFE_CORRELATION_ID: keyResolution.correlationId || '',
-            BREB_DIFE_TRACE_ID: keyResolution.traceId || '',
-            BREB_DIFE_EXECUTION_ID: keyResolution.executionId,
-            BREB_KEY_TYPE: keyType,
-            BREB_PARTICIPANT_NIT: resolvedKey.participant.nit,
-            BREB_PARTICIPANT_SPBVI: resolvedKey.participant.spbvi
-        };
-        const accountInfo = {
-            type: paymentMethod.type,
-            number: paymentMethod.number,
-            detail: accountDetail
-        };
-        const userData = {
-            name: fullName,
-            personType: person.personType,
-            documentType: person.identificationType,
-            documentNumber: person.identificationNumber,
-            account: accountInfo
-        };
+        const fullName = [person.firstName, person.secondName, person.lastName, person.secondLastName]
+            .filter(Boolean)
+            .join(' ');
         const data = {
-            externalTransactionId: keyResolution.executionId || '',
-            state: 'SUCCESFUL',
-            userData
+            externalTransactionId: difeResponse.execution_id || '',
+            state: constant_1.AccountQueryState.SUCCESSFUL,
+            userData: {
+                name: fullName,
+                personType: person.personType,
+                documentType: person.identificationType,
+                documentNumber: person.identificationNumber,
+                account: {
+                    type: paymentMethod.type,
+                    number: paymentMethod.number,
+                    detail: {
+                        KEY_VALUE: key,
+                        BREB_DIFE_EXECUTION_ID: difeResponse.execution_id || '',
+                        BREB_DIFE_CORRELATION_ID: difeResponse.correlation_id || '',
+                        BREB_DIFE_TRACE_ID: difeResponse.trace_id || '',
+                        BREB_KEY_TYPE: keyType,
+                        BREB_PARTICIPANT_NIT: resolvedKey.participant.nit,
+                        BREB_PARTICIPANT_SPBVI: resolvedKey.participant.spbvi
+                    }
+                }
+            }
         };
-        const response = themis_1.ThResponseBuilder.created(data, constant_1.TransferMessage.KEY_RESOLUTION_SUCCESS);
-        return {
-            response,
-            httpStatus: themis_1.ThAppStatusCode.CREATED
-        };
+        return themis_1.ThResponseBuilder.created(data, constant_1.TransferMessage.KEY_RESOLUTION_SUCCESS);
     }
-    buildErrorResponse(errorMessage) {
-        const errorInfo = (0, network_error_extractor_util_1.extractNetworkErrorInfo)(errorMessage);
+    buildErrorResponse(key, keyType, errorMessage, difeResponse) {
+        const errorCodeMatch = errorMessage.match(/\(([A-Z]+-\d{4})\)/) || errorMessage.match(/^([A-Z]+-\d+)/);
+        const networkCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
+        let networkMessage = errorMessage;
+        if (errorCodeMatch) {
+            const descriptionMatch = errorMessage.match(/DIFE API error: (.+?) \([A-Z]+-\d{4}\)/);
+            if (descriptionMatch) {
+                networkMessage = descriptionMatch[1];
+            }
+            else {
+                networkMessage = errorMessage.replace(/^[A-Z]+-\d+:\s*/, '').trim();
+            }
+        }
+        const errorInfo = {
+            code: networkCode,
+            description: networkMessage,
+            source: 'DIFE'
+        };
         const transferMessage = error_message_mapper_1.ErrorMessageMapper.mapToMessage(errorInfo);
-        const networkCode = errorInfo?.code;
-        const networkDescription = errorInfo?.description || errorMessage;
         const formattedNetworkMessage = networkCode
-            ? error_message_mapper_1.ErrorMessageMapper.formatNetworkErrorMessage(networkDescription, errorInfo?.source || 'DIFE')
-            : networkDescription;
-        const responseCode = standardized_response_code_mapper_1.StandardizedResponseCodeMapper.determineResponseCode(networkCode);
-        const httpStatus = standardized_response_code_mapper_1.StandardizedResponseCodeMapper.mapToHttpStatus(responseCode, networkCode);
+            ? error_message_mapper_1.ErrorMessageMapper.formatNetworkErrorMessage(networkMessage, 'DIFE')
+            : networkMessage;
+        const errorState = this.determineErrorState(networkCode);
         const data = {
-            networkCode,
-            networkMessage: formattedNetworkMessage
+            externalTransactionId: difeResponse?.execution_id || '',
+            state: errorState,
+            ...(networkCode && { networkCode }),
+            ...(formattedNetworkMessage && { networkMessage: formattedNetworkMessage }),
+            userData: {
+                account: {
+                    detail: {
+                        KEY_VALUE: key,
+                        BREB_DIFE_EXECUTION_ID: difeResponse?.execution_id || '',
+                        BREB_DIFE_CORRELATION_ID: difeResponse?.correlation_id || '',
+                        BREB_DIFE_TRACE_ID: difeResponse?.trace_id || '',
+                        BREB_KEY_TYPE: keyType
+                    }
+                }
+            }
         };
-        const response = themis_1.ThResponseBuilder.custom(httpStatus, transferMessage, data);
-        return {
-            response,
-            httpStatus
-        };
+        return this.buildErrorResponseByNetworkCode(networkCode, transferMessage, data);
     }
-    handleError(error, correlationId) {
+    determineErrorState(networkCode) {
+        if (!networkCode) {
+            return constant_1.AccountQueryState.ERROR;
+        }
+        if (constant_1.DifeErrorCodes.FORMAT_VALIDATION.includes(networkCode)) {
+            return constant_1.AccountQueryState.VALIDATION_FAILED;
+        }
+        if (constant_1.DifeErrorCodes.BUSINESS_VALIDATION.includes(networkCode)) {
+            return constant_1.AccountQueryState.REJECTED_BY_PROVIDER;
+        }
+        if (constant_1.DifeErrorCodes.SERVICE_ERROR.includes(networkCode) || networkCode.startsWith('DIFE-999')) {
+            return constant_1.AccountQueryState.PROVIDER_ERROR;
+        }
+        return constant_1.AccountQueryState.ERROR;
+    }
+    buildErrorResponseByNetworkCode(networkCode, message, data) {
+        if (!networkCode) {
+            return themis_1.ThResponseBuilder.internalError(message, data);
+        }
+        if (constant_1.DifeErrorCodes.FORMAT_VALIDATION.includes(networkCode)) {
+            return themis_1.ThResponseBuilder.badRequest(message, data);
+        }
+        if (constant_1.DifeErrorCodes.BUSINESS_VALIDATION.includes(networkCode)) {
+            return themis_1.ThResponseBuilder.validationError(data, message);
+        }
+        if (constant_1.DifeErrorCodes.SERVICE_ERROR.includes(networkCode) || networkCode.startsWith('DIFE-999')) {
+            return themis_1.ThResponseBuilder.externalServiceError(message, data);
+        }
+        return themis_1.ThResponseBuilder.internalError(message, data);
+    }
+    handleError(error, key, keyType, correlationId) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        this.logger.error('Key resolution failed with exception', {
+        this.logger.error('Account query failed with exception', {
             correlationId,
             error: errorMessage,
             errorType: error instanceof Error ? error.constructor.name : 'Unknown'
         });
-        return this.buildErrorResponse(errorMessage);
+        if (error instanceof custom_exceptions_1.KeyResolutionException) {
+            return this.buildErrorResponse(key, keyType, error.message);
+        }
+        return this.buildErrorResponse(key, keyType, errorMessage);
     }
 };
 exports.AccountQueryUseCase = AccountQueryUseCase;

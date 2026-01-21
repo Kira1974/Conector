@@ -17,7 +17,7 @@ describe('Transfer E2E Tests with Mountebank', () => {
   };
 
   beforeAll(async () => {
-    process.env.NODE_ENV = 'test';
+    process.env.ENV = 'test';
     mountebankHelper = new MountebankHelper(mountebankConfig);
     await mountebankHelper.start();
 

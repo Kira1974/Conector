@@ -37,6 +37,7 @@ exports.GlobalExceptionFilter = void 0;
 const crypto = __importStar(require("crypto"));
 const common_1 = require("@nestjs/common");
 const themis_1 = require("themis");
+const constant_1 = require("../../../../core/constant");
 let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilter {
     constructor(loggerService) {
         this.loggerService = loggerService;
@@ -53,15 +54,9 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
         }
         const errorDetails = this.getErrorDetails(exception, correlationId);
         this.logError(exception, errorDetails, request, correlationId);
-        const errorResponse = {
-            responseCode: this.mapToResponseCode(errorDetails.errorCode),
-            message: errorDetails.message,
-            timestamp: new Date().toISOString()
-        };
-        if (errorDetails.correlationId) {
-            errorResponse.correlationId = errorDetails.correlationId;
-        }
-        response.status(errorDetails.httpStatus).json(errorResponse);
+        const state = this.mapToAccountQueryState(errorDetails.errorCode);
+        const standardResponse = this.buildThStandardResponse(errorDetails, state, correlationId);
+        response.status(errorDetails.httpStatus).json(standardResponse);
     }
     getErrorDetails(exception, correlationId) {
         if (exception instanceof common_1.HttpException) {
@@ -266,22 +261,45 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
             message.includes('network') ||
             exception.name === 'NetworkError');
     }
-    mapToResponseCode(errorCode) {
+    mapToAccountQueryState(errorCode) {
         switch (errorCode) {
             case 'VALIDATION_ERROR':
-                return 'VALIDATION_FAILED';
+                return constant_1.AccountQueryState.VALIDATION_FAILED;
             case 'AUTH_ERROR':
             case 'PERMISSION_ERROR':
             case 'RATE_LIMIT_ERROR':
-                return 'REJECTED_BY_PROVIDER';
             case 'NOT_FOUND':
-                return 'ERROR';
+                return constant_1.AccountQueryState.REJECTED_BY_PROVIDER;
             case 'TIMEOUT_ERROR':
             case 'EXTERNAL_SERVICE_ERROR':
             case 'SERVICE_UNAVAILABLE':
+                return constant_1.AccountQueryState.PROVIDER_ERROR;
             case 'INTERNAL_ERROR':
             default:
-                return 'ERROR';
+                return constant_1.AccountQueryState.ERROR;
+        }
+    }
+    buildThStandardResponse(errorDetails, state, correlationId) {
+        const data = {
+            externalTransactionId: correlationId || '',
+            state,
+            networkMessage: errorDetails.message,
+            userData: {
+                account: {
+                    detail: {}
+                }
+            }
+        };
+        switch (state) {
+            case constant_1.AccountQueryState.VALIDATION_FAILED:
+                return themis_1.ThResponseBuilder.badRequest(errorDetails.message, data);
+            case constant_1.AccountQueryState.REJECTED_BY_PROVIDER:
+                return themis_1.ThResponseBuilder.validationError(data, errorDetails.message);
+            case constant_1.AccountQueryState.PROVIDER_ERROR:
+                return themis_1.ThResponseBuilder.externalServiceError(errorDetails.message, data);
+            case constant_1.AccountQueryState.ERROR:
+            default:
+                return themis_1.ThResponseBuilder.internalError(errorDetails.message, data);
         }
     }
 };

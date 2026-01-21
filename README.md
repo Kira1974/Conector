@@ -31,8 +31,8 @@ npm install
 cp .env.example .env
 ```
 
-2. Configure your environment in `deployment/{NODE_ENV}/app.json`:
-   - Set `NODE_ENV=dev` for development
+2. Configure your environment in `deployment/{ENV}/app.json`:
+   - Set `ENV=dev` for development
    - See [Configuration Guide](docs/configuration.md) for details
 
 ### Running

@@ -1,19 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AccountQueryErrorDataDto = exports.AccountQuerySuccessDataDto = exports.UserDataDto = exports.AccountInfoDto = exports.AccountDetailDto = void 0;
+exports.AccountQueryDataDto = exports.UserDataDto = exports.AccountDataDto = exports.AccountDetailDto = void 0;
 class AccountDetailDto {
 }
 exports.AccountDetailDto = AccountDetailDto;
-class AccountInfoDto {
+class AccountDataDto {
 }
-exports.AccountInfoDto = AccountInfoDto;
+exports.AccountDataDto = AccountDataDto;
 class UserDataDto {
 }
 exports.UserDataDto = UserDataDto;
-class AccountQuerySuccessDataDto {
+class AccountQueryDataDto {
 }
-exports.AccountQuerySuccessDataDto = AccountQuerySuccessDataDto;
-class AccountQueryErrorDataDto {
-}
-exports.AccountQueryErrorDataDto = AccountQueryErrorDataDto;
+exports.AccountQueryDataDto = AccountQueryDataDto;
 //# sourceMappingURL=account-query-response.dto.js.map

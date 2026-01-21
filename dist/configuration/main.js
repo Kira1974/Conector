@@ -30,7 +30,6 @@ async function bootstrap() {
         .setTitle('Charon Adapter')
         .setDescription('Credibanco Adapter')
         .setVersion('1.0')
-        .addTag('Key Resolution', 'Endpoint to resolve a payment key')
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup('api-docs', app, document);

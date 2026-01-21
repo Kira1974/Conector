@@ -6,4 +6,5 @@ export declare class TransferConfigService {
     getWebhookPollingStartDelay(): number;
     getPollingInterval(): number;
     isPollingEnabled(): boolean;
+    isCleanupIntervalEnabled(): boolean;
 }

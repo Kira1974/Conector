@@ -17,5 +17,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./transfer-request.dto"), exports);
 __exportStar(require("./transfer-response.dto"), exports);
 __exportStar(require("./transfer-confirmation.dto"), exports);
-__exportStar(require("./key-resolution.response.dto"), exports);
+__exportStar(require("./account-query-request.dto"), exports);
+__exportStar(require("./account-query-response.dto"), exports);
 //# sourceMappingURL=index.js.map

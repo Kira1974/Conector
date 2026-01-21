@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
 // Set up environment variables for tests
-process.env.NODE_ENV = 'test';
+process.env.ENV = 'test';
 process.env.TRANSFER_TIMEOUT_MS = '50000';
 process.env.WEBHOOK_POLLING_START_DELAY_MS = '30000';
 process.env.POLLING_INTERVAL_MS = '5000';

@@ -16,5 +16,6 @@ export declare class GlobalExceptionFilter implements ExceptionFilter {
     private handleKeyResolutionError;
     private isTimeoutError;
     private isNetworkError;
-    private mapToResponseCode;
+    private mapToAccountQueryState;
+    private buildThStandardResponse;
 }

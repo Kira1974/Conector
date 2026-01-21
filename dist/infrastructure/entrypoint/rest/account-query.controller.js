@@ -17,7 +17,7 @@ exports.AccountQueryController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const themis_1 = require("themis");
-const account_query_usecase_1 = require("../../../core/usecase/account-query.usecase");
+const usecase_1 = require("../../../core/usecase");
 const util_1 = require("../../../core/util");
 const dto_1 = require("../dto");
 const api_account_query_docs_decorator_1 = require("./decorators/api-account-query-docs.decorator");
@@ -27,47 +27,42 @@ let AccountQueryController = AccountQueryController_1 = class AccountQueryContro
         this.loggerService = loggerService;
         this.logger = this.loggerService.getLogger(AccountQueryController_1.name, themis_1.ThLoggerComponent.CONTROLLER);
     }
-    async queryAccount(request) {
-        const keyValue = request.account.value;
+    async queryAccount(request, res) {
+        const { account } = request;
         this.logger.log('CHARON_REQUEST', {
-            accountType: request.account.type,
-            key: (0, util_1.obfuscateKey)(keyValue, 3)
+            accountType: account.type,
+            keyType: (0, util_1.calculateKeyType)(account.value),
+            key: (0, util_1.obfuscateKey)(account.value, 3)
         });
-        const result = await this.accountQueryUseCase.execute(keyValue);
-        const { response, correlationId, difeExecutionId, httpStatus } = result;
-        const successData = response.data;
+        const result = await this.accountQueryUseCase.execute(account.value);
+        const { response } = result;
         this.logger.log('CHARON_RESPONSE', {
-            status: httpStatus,
-            correlationId,
-            externalTransactionId: difeExecutionId,
-            responseCode: 'state' in response.data ? successData.state : response.code,
+            status: response.code,
+            externalTransactionId: response.data?.externalTransactionId,
             responseBody: response
         });
-        if (httpStatus !== common_1.HttpStatus.CREATED) {
-            throw new common_1.HttpException(response, httpStatus);
-        }
-        return response;
+        return res.status(response.code).json(response);
     }
 };
 exports.AccountQueryController = AccountQueryController;
 __decorate([
-    (0, common_1.Post)(),
-    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, common_1.Post)('query'),
     (0, api_account_query_docs_decorator_1.ApiAccountQueryDocs)(),
     (0, themis_1.ThTraceEvent)({
         eventType: new themis_1.ThEventTypeBuilder().setDomain('account-query').setAction('post'),
-        tags: ['account-query', 'breb', 'dife']
+        tags: ['account-query', 'dife', 'breb']
     }),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [dto_1.AccountQueryRequestDto]),
+    __metadata("design:paramtypes", [dto_1.AccountQueryRequestDto, Object]),
     __metadata("design:returntype", Promise)
 ], AccountQueryController.prototype, "queryAccount", null);
 exports.AccountQueryController = AccountQueryController = AccountQueryController_1 = __decorate([
     (0, swagger_1.ApiTags)('Account Query'),
-    (0, common_1.Controller)('account/query'),
+    (0, common_1.Controller)('account'),
     (0, common_1.UseInterceptors)(themis_1.ThHttpRequestTracingInterceptor, themis_1.ThHttpResponseTracingInterceptor),
-    __metadata("design:paramtypes", [account_query_usecase_1.AccountQueryUseCase,
+    __metadata("design:paramtypes", [usecase_1.AccountQueryUseCase,
         themis_1.ThLoggerService])
 ], AccountQueryController);
 //# sourceMappingURL=account-query.controller.js.map

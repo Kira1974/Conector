@@ -63,7 +63,10 @@ function deepMerge(target, source) {
     return result;
 }
 function loadConfiguration() {
-    const env = process.env.NODE_ENV || 'dev';
+    const env = process.env.ENV;
+    if (!env) {
+        throw new Error('Environment variable ENV is required but not set');
+    }
     const baseConfigPath = path.join(process.cwd(), 'deployment', 'base', 'app.json');
     const envConfigPath = path.join(process.cwd(), 'deployment', env, 'app.json');
     let baseConfig = {};

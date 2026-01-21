@@ -8,5 +8,6 @@ export * from './transfer-response.dto';
 // Transfer Confirmation DTOs
 export * from './transfer-confirmation.dto';
 
-// Key resolution DTOs
-export * from './key-resolution.response.dto';
+// Account query DTOs
+export * from './account-query-request.dto';
+export * from './account-query-response.dto';

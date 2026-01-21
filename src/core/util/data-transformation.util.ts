@@ -9,22 +9,21 @@ export function buildAdditionalDataFromKeyResolution(keyResolution: DifeKeyRespo
   }
 
   const documentNumber = key.person.identification?.number || '';
-  const obfuscatedName = buildObfuscatedName(key.person);
+  const name = buildName(key.person);
   const accountNumber = key.payment_method.number || '';
-  const maskedAccountNumber = buildMaskedAccountNumber(accountNumber);
   const accountType = key.payment_method.type || '';
 
   return {
     [AdditionalDataKey.DOCUMENT_NUMBER]: documentNumber,
-    [AdditionalDataKey.OBFUSCATED_NAME]: obfuscatedName,
-    [AdditionalDataKey.ACCOUNT_NUMBER]: maskedAccountNumber,
+    [AdditionalDataKey.NAME]: name,
+    [AdditionalDataKey.ACCOUNT_NUMBER]: accountNumber,
     [AdditionalDataKey.ACCOUNT_TYPE]: accountType
   };
 }
 
-function buildObfuscatedName(person: DifeKeyResponseDto['key']['person']): string {
+function buildName(person: DifeKeyResponseDto['key']['person']): string {
   if (!person.name) {
-    return '';
+    return person.legal_name || '';
   }
 
   const nameParts = [
@@ -32,9 +31,7 @@ function buildObfuscatedName(person: DifeKeyResponseDto['key']['person']): strin
     person.name.second_name,
     person.name.last_name,
     person.name.second_last_name
-  ]
-    .map((part) => obfuscateWord(part || ''))
-    .filter((obfuscated) => obfuscated.length > 0);
+  ].filter((part) => part && part.length > 0);
 
   return nameParts.join(' ');
 }

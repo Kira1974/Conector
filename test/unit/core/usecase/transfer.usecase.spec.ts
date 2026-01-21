@@ -148,8 +148,8 @@ describe('TransferUseCase', () => {
       expect(result.externalTransactionId).toBe('MOL-PAY-123');
       expect(result.additionalData?.['END_TO_END']).toBe('E2E-456');
       expect(result.additionalData?.['DOCUMENT_NUMBER']).toBe('1234567890');
-      expect(result.additionalData?.['OBFUSCATED_NAME']).toBe('Lau** Tur** Dan**** Dra**');
-      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('****567890');
+      expect(result.additionalData?.['NAME']).toBe('Laura Turga Daniela Drama');
+      expect(result.additionalData?.['ACCOUNT_NUMBER']).toBe('1234567890');
       expect(result.additionalData?.['ACCOUNT_TYPE']).toBe('CAHO');
 
       expect(mockDifeProvider.resolveKey).toHaveBeenCalledWith(

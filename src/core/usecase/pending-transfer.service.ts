@@ -48,7 +48,7 @@ export class PendingTransferService implements OnModuleDestroy {
     this.MOL_QUERY_TIMEOUT_MS = this.externalServicesConfig.getMolQueryTimeout();
     this.ENABLE_MOL_POLLING = this.transferConfig.isPollingEnabled();
 
-    if (process.env.NODE_ENV !== 'test') {
+    if (this.transferConfig.isCleanupIntervalEnabled()) {
       this.startCleanupInterval();
     }
   }

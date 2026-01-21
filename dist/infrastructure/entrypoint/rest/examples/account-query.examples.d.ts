@@ -1,13 +1,14 @@
+import { AccountQueryState } from '@core/constant';
 export declare class AccountQueryExamples {
     static readonly SUCCESS_RESPONSES: {
-        alphanumericKey: {
+        successfulQuery: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
                     externalTransactionId: string;
-                    state: string;
+                    state: AccountQueryState;
                     userData: {
                         name: string;
                         personType: string;
@@ -18,99 +19,9 @@ export declare class AccountQueryExamples {
                             number: string;
                             detail: {
                                 KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
                                 BREB_DIFE_CORRELATION_ID: string;
                                 BREB_DIFE_TRACE_ID: string;
-                                BREB_DIFE_EXECUTION_ID: string;
-                                BREB_KEY_TYPE: string;
-                                BREB_PARTICIPANT_NIT: string;
-                                BREB_PARTICIPANT_SPBVI: string;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        mobileKey: {
-            summary: string;
-            value: {
-                code: number;
-                message: string;
-                data: {
-                    externalTransactionId: string;
-                    state: string;
-                    userData: {
-                        name: string;
-                        personType: string;
-                        documentType: string;
-                        documentNumber: string;
-                        account: {
-                            type: string;
-                            number: string;
-                            detail: {
-                                KEY_VALUE: string;
-                                BREB_DIFE_CORRELATION_ID: string;
-                                BREB_DIFE_TRACE_ID: string;
-                                BREB_DIFE_EXECUTION_ID: string;
-                                BREB_KEY_TYPE: string;
-                                BREB_PARTICIPANT_NIT: string;
-                                BREB_PARTICIPANT_SPBVI: string;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        emailKey: {
-            summary: string;
-            value: {
-                code: number;
-                message: string;
-                data: {
-                    externalTransactionId: string;
-                    state: string;
-                    userData: {
-                        name: string;
-                        personType: string;
-                        documentType: string;
-                        documentNumber: string;
-                        account: {
-                            type: string;
-                            number: string;
-                            detail: {
-                                KEY_VALUE: string;
-                                BREB_DIFE_CORRELATION_ID: string;
-                                BREB_DIFE_TRACE_ID: string;
-                                BREB_DIFE_EXECUTION_ID: string;
-                                BREB_KEY_TYPE: string;
-                                BREB_PARTICIPANT_NIT: string;
-                                BREB_PARTICIPANT_SPBVI: string;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        businessKey: {
-            summary: string;
-            value: {
-                code: number;
-                message: string;
-                data: {
-                    externalTransactionId: string;
-                    state: string;
-                    userData: {
-                        name: string;
-                        personType: string;
-                        documentType: string;
-                        documentNumber: string;
-                        account: {
-                            type: string;
-                            number: string;
-                            detail: {
-                                KEY_VALUE: string;
-                                BREB_DIFE_CORRELATION_ID: string;
-                                BREB_DIFE_TRACE_ID: string;
-                                BREB_DIFE_EXECUTION_ID: string;
                                 BREB_KEY_TYPE: string;
                                 BREB_PARTICIPANT_NIT: string;
                                 BREB_PARTICIPANT_SPBVI: string;
@@ -125,107 +36,244 @@ export declare class AccountQueryExamples {
         invalidKeyFormat: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
                     networkCode: string;
                     networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };
-        invalidEmailFormat: {
+        invalidKeyFormatDife4000: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
                     networkCode: string;
                     networkMessage: string;
-                };
-            };
-        };
-    };
-    static readonly NOT_FOUND_RESPONSES: {
-        keyNotFound: {
-            summary: string;
-            value: {
-                code: number;
-                message: string;
-                data: {
-                    networkCode: string;
-                    networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };
     };
     static readonly REJECTED_BY_PROVIDER_RESPONSES: {
+        keyNotFound: {
+            summary: string;
+            value: {
+                code: string;
+                message: string;
+                data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
+                    networkCode: string;
+                    networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
         keySuspendedByClient: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
                     networkCode: string;
                     networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };
         keySuspendedByParticipant: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
                     networkCode: string;
                     networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        keyCanceled: {
+            summary: string;
+            value: {
+                code: string;
+                message: string;
+                data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
+                    networkCode: string;
+                    networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };
     };
     static readonly PROVIDER_ERROR_RESPONSES: {
+        difeTimeout: {
+            summary: string;
+            value: {
+                code: string;
+                message: string;
+                data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
+                    networkCode: string;
+                    networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
         difeUnexpectedError: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
                     networkCode: string;
                     networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };
         diceApiError: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
                     networkCode: string;
                     networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };
         participantNotFound: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    externalTransactionId: string;
+                    state: AccountQueryState;
                     networkCode: string;
                     networkMessage: string;
-                };
-            };
-        };
-    };
-    static readonly GATEWAY_TIMEOUT_RESPONSES: {
-        difeTimeout: {
-            summary: string;
-            value: {
-                code: number;
-                message: string;
-                data: {
-                    networkCode: string;
-                    networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_DIFE_EXECUTION_ID: string;
+                                BREB_DIFE_CORRELATION_ID: string;
+                                BREB_DIFE_TRACE_ID: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -234,10 +282,19 @@ export declare class AccountQueryExamples {
         charonInternalError: {
             summary: string;
             value: {
-                code: number;
+                code: string;
                 message: string;
                 data: {
+                    state: AccountQueryState;
                     networkMessage: string;
+                    userData: {
+                        account: {
+                            detail: {
+                                KEY_VALUE: string;
+                                BREB_KEY_TYPE: string;
+                            };
+                        };
+                    };
                 };
             };
         };

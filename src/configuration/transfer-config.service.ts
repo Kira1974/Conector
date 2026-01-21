@@ -21,4 +21,10 @@ export class TransferConfigService {
   isPollingEnabled(): boolean {
     return this.config.get<boolean>('transfer.enablePolling');
   }
+
+  isCleanupIntervalEnabled(): boolean {
+    return this.config.has('transfer.enableCleanupInterval')
+      ? this.config.get<boolean>('transfer.enableCleanupInterval')
+      : true;
+  }
 }

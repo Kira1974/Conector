@@ -8,30 +8,27 @@ function buildAdditionalDataFromKeyResolution(keyResolution) {
         return {};
     }
     const documentNumber = key.person.identification?.number || '';
-    const obfuscatedName = buildObfuscatedName(key.person);
+    const name = buildName(key.person);
     const accountNumber = key.payment_method.number || '';
-    const maskedAccountNumber = buildMaskedAccountNumber(accountNumber);
     const accountType = key.payment_method.type || '';
     return {
         [additional_data_key_enum_1.AdditionalDataKey.DOCUMENT_NUMBER]: documentNumber,
-        [additional_data_key_enum_1.AdditionalDataKey.OBFUSCATED_NAME]: obfuscatedName,
-        [additional_data_key_enum_1.AdditionalDataKey.ACCOUNT_NUMBER]: maskedAccountNumber,
+        [additional_data_key_enum_1.AdditionalDataKey.NAME]: name,
+        [additional_data_key_enum_1.AdditionalDataKey.ACCOUNT_NUMBER]: accountNumber,
         [additional_data_key_enum_1.AdditionalDataKey.ACCOUNT_TYPE]: accountType
     };
 }
 exports.buildAdditionalDataFromKeyResolution = buildAdditionalDataFromKeyResolution;
-function buildObfuscatedName(person) {
+function buildName(person) {
     if (!person.name) {
-        return '';
+        return person.legal_name || '';
     }
     const nameParts = [
         person.name.first_name,
         person.name.second_name,
         person.name.last_name,
         person.name.second_last_name
-    ]
-        .map((part) => obfuscateWord(part || ''))
-        .filter((obfuscated) => obfuscated.length > 0);
+    ].filter((part) => part && part.length > 0);
     return nameParts.join(' ');
 }
 function obfuscateWord(word) {

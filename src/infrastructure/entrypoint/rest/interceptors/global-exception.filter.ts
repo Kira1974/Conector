@@ -1,7 +1,16 @@
 import * as crypto from 'crypto';
 
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ThLogger, ThLoggerService, ThLoggerComponent, ThRuntimeContext, ThEventTypeBuilder } from 'themis';
+import {
+  ThLogger,
+  ThLoggerService,
+  ThLoggerComponent,
+  ThRuntimeContext,
+  ThEventTypeBuilder,
+  ThResponseBuilder
+} from 'themis';
+
+import { AccountQueryState } from '@core/constant';
 
 interface HttpRequest {
   method: string;
@@ -54,17 +63,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     this.logError(exception, errorDetails, request, correlationId);
 
-    const errorResponse: Record<string, any> = {
-      responseCode: this.mapToResponseCode(errorDetails.errorCode),
-      message: errorDetails.message,
-      timestamp: new Date().toISOString()
-    };
+    const state = this.mapToAccountQueryState(errorDetails.errorCode);
+    const standardResponse = this.buildThStandardResponse(errorDetails, state, correlationId);
 
-    if (errorDetails.correlationId) {
-      errorResponse.correlationId = errorDetails.correlationId;
-    }
-
-    response.status(errorDetails.httpStatus).json(errorResponse);
+    response.status(errorDetails.httpStatus).json(standardResponse);
   }
 
   private getErrorDetails(exception: unknown, correlationId?: string): ErrorDetails {
@@ -324,22 +326,51 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     );
   }
 
-  private mapToResponseCode(errorCode: string): string {
+  private mapToAccountQueryState(errorCode: string): AccountQueryState {
     switch (errorCode) {
       case 'VALIDATION_ERROR':
-        return 'VALIDATION_FAILED';
+        return AccountQueryState.VALIDATION_FAILED;
       case 'AUTH_ERROR':
       case 'PERMISSION_ERROR':
       case 'RATE_LIMIT_ERROR':
-        return 'REJECTED_BY_PROVIDER';
       case 'NOT_FOUND':
-        return 'ERROR';
+        return AccountQueryState.REJECTED_BY_PROVIDER;
       case 'TIMEOUT_ERROR':
       case 'EXTERNAL_SERVICE_ERROR':
       case 'SERVICE_UNAVAILABLE':
+        return AccountQueryState.PROVIDER_ERROR;
       case 'INTERNAL_ERROR':
       default:
-        return 'ERROR';
+        return AccountQueryState.ERROR;
+    }
+  }
+
+  private buildThStandardResponse(
+    errorDetails: ErrorDetails,
+    state: AccountQueryState,
+    correlationId?: string
+  ): Record<string, any> {
+    const data = {
+      externalTransactionId: correlationId || '',
+      state,
+      networkMessage: errorDetails.message,
+      userData: {
+        account: {
+          detail: {}
+        }
+      }
+    };
+
+    switch (state) {
+      case AccountQueryState.VALIDATION_FAILED:
+        return ThResponseBuilder.badRequest(errorDetails.message, data);
+      case AccountQueryState.REJECTED_BY_PROVIDER:
+        return ThResponseBuilder.validationError(data, errorDetails.message);
+      case AccountQueryState.PROVIDER_ERROR:
+        return ThResponseBuilder.externalServiceError(errorDetails.message, data);
+      case AccountQueryState.ERROR:
+      default:
+        return ThResponseBuilder.internalError(errorDetails.message, data);
     }
   }
 }
